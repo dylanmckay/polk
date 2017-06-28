@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 /// The full URL to GitHub.
 pub const GITHUB_URL: &'static str = "https://github.com";
 
@@ -43,6 +45,14 @@ impl SourceSpec
                 Source::Git { url: url.clone() }
             },
         }
+    }
+}
+
+impl FromStr for SourceSpec {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, &'static str> {
+        Ok(SourceSpec::Url(s.to_owned()))
     }
 }
 

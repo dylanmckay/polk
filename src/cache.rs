@@ -70,7 +70,12 @@ impl<'a> UserCache<'a> {
         }
     }
 
-    pub fn initialize_via_git(&mut self, repository_url: &str) -> Result<(), io::Error> {
+    /// Rebuilds symbolic links for the user.
+    pub fn rehash(&mut self) -> Result<(), io::Error> {
+        unimplemented!();
+    }
+
+    fn initialize_via_git(&mut self, repository_url: &str) -> Result<(), io::Error> {
         let repo = match Repository::clone(repository_url, self.path()) {
             Ok(repo) => repo,
             Err(e) => panic!("failed to clone: {}", e),
