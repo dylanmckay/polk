@@ -5,6 +5,11 @@ use git2::Repository;
 use std::path::PathBuf;
 use std::{fs, io};
 
+/// Files which should not be considered dotfiles.
+pub const DOTFILE_BLACKLIST: &'static [&'static str] = &[
+    ".gitignore",
+];
+
 /// The main cache directory.
 pub struct Cache {
     /// The directory that contains the cache.
@@ -60,6 +65,8 @@ impl<'a> UserCache<'a> {
     /// Initializes cache for a user.
     pub fn initialize(&mut self, source: &SourceSpec) -> Result<(), io::Error> {
         // Clear the directory because it may already exist.
+        // FIXME: we shoulnd't do this because initialisation may fail and we would
+        // want to keep existing configuration.
         if self.path().exists() {
             fs::remove_dir_all(&self.path())?;
             fs::create_dir_all(&self.path())?;
@@ -73,6 +80,29 @@ impl<'a> UserCache<'a> {
     /// Rebuilds symbolic links for the user.
     pub fn rehash(&mut self) -> Result<(), io::Error> {
         unimplemented!();
+    }
+
+    /// Gets all of the dotfiles in the cache.
+    pub fn dotfiles(&self) -> Result<Vec<Dotfile>, io::Error> {
+        let mut dotfiles = Vec::new();
+
+        for entry in fs::read_dir(self.path())? {
+            let entry = entry?;
+
+            if !entry.path().is_file() { continue; }
+
+            let file_name = entry.path().file_name().unwrap().to_str().unwrap().to_owned();
+            let blacklisted = DOTFILE_BLACKLIST.iter().any(|&bl| file_name == bl);
+
+            if file_name.starts_with(".") && !blacklisted {
+                dotfiles.push(Dotfile {
+                    full_path: entry.path(),
+                    relative_path: entry.path().strip_prefix(&self.path()).unwrap().to_owned(),
+                });
+            }
+        }
+
+        Ok(dotfiles)
     }
 
     fn initialize_via_git(&mut self, repository_url: &str) -> Result<(), io::Error> {

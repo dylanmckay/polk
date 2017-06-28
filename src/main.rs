@@ -36,6 +36,8 @@ fn dotty() -> Result<(), ::std::io::Error> {
                                            .index(1)))
                           .subcommand(SubCommand::with_name("rehash")
                                       .about("Recreates symbolic links to dotfiles"))
+                          .subcommand(SubCommand::with_name("info")
+                                      .about("List information"))
                           .get_matches();
 
     match matches.subcommand() {
@@ -54,6 +56,11 @@ fn dotty() -> Result<(), ::std::io::Error> {
         },
         ("rehash", _) => {
             user_cache.rehash()?;
+        },
+        ("info", _) => {
+            for dotfile in user_cache.dotfiles()? {
+                println!("{}", dotfile.relative_path.display());
+            }
         },
         _ => unreachable!(),
     }
