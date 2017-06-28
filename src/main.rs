@@ -3,14 +3,27 @@ extern crate git2;
 extern crate regex;
 #[macro_use]
 extern crate lazy_static;
+extern crate walkdir;
 
 pub use self::cache::Cache;
 pub use self::source::{Source, SourceSpec};
 
 pub mod cache;
 pub mod source;
+pub mod symlink;
+
+/// A single dotfile.
+pub struct Dotfile
+{
+    /// The full on-disk path of the dotfile.
+    pub full_path: PathBuf,
+    /// The path of the dotfile relative to the users home directory.
+    pub relative_path: PathBuf,
+}
 
 use clap::{Arg, App, SubCommand};
+
+use std::path::PathBuf;
 use std::env;
 
 fn open_cache() -> Cache {
@@ -36,6 +49,8 @@ fn dotty() -> Result<(), ::std::io::Error> {
                                            .index(1)))
                           .subcommand(SubCommand::with_name("rehash")
                                       .about("Recreates symbolic links to dotfiles"))
+                          .subcommand(SubCommand::with_name("clean")
+                                      .about("Clears all symbolic links"))
                           .subcommand(SubCommand::with_name("info")
                                       .about("List information"))
                           .get_matches();
@@ -56,6 +71,9 @@ fn dotty() -> Result<(), ::std::io::Error> {
         },
         ("rehash", _) => {
             user_cache.rehash()?;
+        },
+        ("clean", _) => {
+            user_cache.clean()?;
         },
         ("info", _) => {
             for dotfile in user_cache.dotfiles()? {
