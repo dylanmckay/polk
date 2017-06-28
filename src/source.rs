@@ -6,6 +6,16 @@ pub const GITHUB_URL: &'static str = "https://github.com";
 /// The assumed name of a repository containing dotfiles.
 pub const DEFAULT_GIT_REPOSITORY_NAME: &'static str = "dotfiles";
 
+mod spec_matchers {
+    use regex::Regex;
+
+    lazy_static! {
+        /// GitHub spec
+        /// `github:<username>[/repository]`
+        pub static ref GITHUB: Regex = Regex::new("github:(\\w+)/?(\\w+)?").unwrap();
+    }
+}
+
 /// A source of dotfiles.
 #[derive(Clone, Debug)]
 pub enum SourceSpec {
@@ -52,7 +62,16 @@ impl FromStr for SourceSpec {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, &'static str> {
-        Ok(SourceSpec::Url(s.to_owned()))
+        if spec_matchers::GITHUB.is_match(s) {
+            let captures = spec_matchers::GITHUB.captures(s).unwrap();
+            let username = captures.get(1).unwrap().as_str().to_owned();
+            let repository = captures.get(2).map(|m| m.as_str().to_owned());
+
+            Ok(SourceSpec::GitHub { username: username, repository: repository })
+        } else {
+            // Assume URL if nothing else.
+            Ok(SourceSpec::Url(s.to_owned()))
+        }
     }
 }
 

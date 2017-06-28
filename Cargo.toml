@@ -6,3 +6,5 @@ authors = ["Dylan McKay <me@dylanmckay.io>"]
 [dependencies]
 clap = "2.25"
 git2 = "0.6"
+regex = "0.2"
+lazy_static = "0.2"

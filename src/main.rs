@@ -1,5 +1,8 @@
 extern crate clap;
 extern crate git2;
+extern crate regex;
+#[macro_use]
+extern crate lazy_static;
 
 pub use self::cache::Cache;
 pub use self::source::{Source, SourceSpec};
@@ -44,8 +47,10 @@ fn dotty() -> Result<(), ::std::io::Error> {
             let source_str = setup_matches.value_of("SOURCE").unwrap();
             let source_spec: SourceSpec = source_str.parse().unwrap();
 
-            user_cache.initialize(&source_spec).unwrap();
-            println!("set up!");
+            println!("Setting up");
+            println!("{:?}", source_spec);
+
+            user_cache.initialize(&source_spec)?;
         },
         ("rehash", _) => {
             user_cache.rehash()?;
