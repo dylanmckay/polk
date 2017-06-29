@@ -5,6 +5,10 @@ extern crate regex;
 extern crate lazy_static;
 extern crate walkdir;
 extern crate term;
+extern crate toml;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 
 pub use self::cache::Cache;
 pub use self::source::{Source, SourceSpec};
@@ -56,6 +60,8 @@ fn dotty() -> Result<(), ::std::io::Error> {
                                            .help("Sets the source of the dotfiles")
                                            .required(true)
                                            .index(1)))
+                          .subcommand(SubCommand::with_name("update")
+                                      .about("Updates dotfiles via the internet"))
                           .subcommand(SubCommand::with_name("rehash")
                                       .about("Recreates symbolic links to dotfiles"))
                           .subcommand(SubCommand::with_name("clean")
@@ -79,6 +85,9 @@ fn dotty() -> Result<(), ::std::io::Error> {
             vlog!(verbose => "Getting dotfiles from {}", source_spec.description());
 
             user_cache.initialize(&source_spec, verbose)?;
+        },
+        ("update", _) => {
+            user_cache.update(verbose)?;
         },
         ("rehash", _) => {
             user_cache.rehash(verbose)?;

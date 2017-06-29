@@ -3,7 +3,9 @@ use symlink;
 
 use git2::Repository;
 use walkdir::WalkDir;
+use toml;
 
+use std::io::prelude::*;
 use std::path::{self, PathBuf};
 use std::{fs, io};
 
@@ -28,6 +30,13 @@ pub struct Cache {
 pub struct UserCache<'a> {
     cache: &'a Cache,
     username: String,
+}
+
+/// A manifest file for a user cache.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserManifest {
+    /// The source of the dotfiles.
+    pub source: SourceSpec,
 }
 
 impl Cache {
@@ -59,23 +68,57 @@ impl Cache {
 }
 
 impl<'a> UserCache<'a> {
-    fn path(&self) -> PathBuf { self.cache.path.join("users").join(&self.username) }
+    /// The path to the root of the user cache.
+    fn base_path(&self) -> PathBuf { self.cache.path.join("users").join(&self.username) }
+
+    /// Gets the path to the manifest file.
+    fn manifest_path(&self) -> PathBuf {
+        self.base_path().join("manifest.toml")
+    }
+
+    /// The path to the dotfiles subdirectory inside the cache.
+    fn dotfiles_path(&self) -> PathBuf {
+        self.base_path().join("dotfiles")
+    }
 
     /// Initializes cache for a user.
-    pub fn initialize(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), io::Error> {
+    pub fn initialize(&mut self, source: &SourceSpec, _verbose: bool) -> Result<(), io::Error> {
         // Clear the directory because it may already exist.
         // FIXME: we shoulnd't do this because initialisation may fail and we would
         // want to keep existing configuration.
-        if self.path().exists() {
-            fs::remove_dir_all(&self.path())?;
-            fs::create_dir_all(&self.path())?;
+        if self.dotfiles_path().exists() {
+            fs::remove_dir_all(&self.dotfiles_path())?;
+            fs::create_dir_all(&self.dotfiles_path())?;
         }
 
         match source.canonical() {
             Source::Git { url } => self.initialize_via_git(&url),
         }?;
 
-        self.build_symlinks(verbose)
+        let manifest = UserManifest { source: source.clone() };
+        let manifest_toml = toml::to_string(&manifest).expect("failed to create manifest toml");
+
+        let mut file = fs::File::create(self.manifest_path())?;
+        file.write_all(manifest_toml.as_bytes())?;
+        Ok(())
+    }
+
+    /// Updates all of the dotfiles.
+    pub fn update(&mut self, _verbose: bool) -> Result<(), io::Error> {
+        let manifest = self.manifest()?;
+
+        ilog!("updating dotfiles from {}", manifest.source.description());
+        unimplemented!();
+    }
+
+    /// Gets the manifest.
+    pub fn manifest(&self) -> Result<UserManifest, io::Error> {
+        let mut file = fs::File::open(self.manifest_path())?;
+        let mut manifest_toml = String::new();
+        file.read_to_string(&mut manifest_toml)?;
+
+        let manifest: UserManifest = toml::from_str(&manifest_toml).unwrap();
+        Ok(manifest)
     }
 
     /// Rebuilds symbolic links for the user.
@@ -86,9 +129,11 @@ impl<'a> UserCache<'a> {
     /// Cleans out all dotfiles.
     pub fn clean(&mut self, verbose: bool) -> Result<(), io::Error> {
         for dotfile in self.dotfiles()? {
-            vlog!(verbose => "deleting {}", symlink::path(&dotfile).display());
+            if symlink::exists(&dotfile)? {
+                vlog!(verbose => "deleting {}", symlink::path(&dotfile).display());
 
-            symlink::destroy(&dotfile)?;
+                symlink::destroy(&dotfile)?;
+            }
         }
 
         Ok(())
@@ -98,7 +143,7 @@ impl<'a> UserCache<'a> {
     pub fn dotfiles(&self) -> Result<Vec<Dotfile>, io::Error> {
         let mut dotfiles = Vec::new();
 
-        for entry in WalkDir::new(self.path()) {
+        for entry in WalkDir::new(self.dotfiles_path()) {
             let entry = entry?;
 
             if !entry.path().is_file() { continue; }
@@ -118,7 +163,7 @@ impl<'a> UserCache<'a> {
             if !folder_blacklisted && !file_blacklisted {
                 dotfiles.push(Dotfile {
                     full_path: entry.path().to_owned(),
-                    relative_path: entry.path().strip_prefix(&self.path()).unwrap().to_owned(),
+                    relative_path: entry.path().strip_prefix(&self.dotfiles_path()).unwrap().to_owned(),
                 });
             }
         }
@@ -147,9 +192,9 @@ impl<'a> UserCache<'a> {
 
 
     fn initialize_via_git(&mut self, repository_url: &str) -> Result<(), io::Error> {
-        ilog!("cloning from Git repository at '{}' to '{}'", repository_url, self.path().display());
+        ilog!("cloning from Git repository at '{}' to '{}'", repository_url, self.dotfiles_path().display());
 
-        let _repo = match Repository::clone(repository_url, self.path()) {
+        let _repo = match Repository::clone(repository_url, self.dotfiles_path()) {
             Ok(repo) => repo,
             Err(e) => fatal!("failed to clone: {}", e),
         };
