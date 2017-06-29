@@ -116,14 +116,19 @@ mod info {
     use std::io;
 
     pub fn print_features(features: &FeatureSet) -> Result<(), io::Error> {
+        let mut enabled_features: Vec<_> = features.enabled_features.iter().cloned().collect();
+        let mut disabled_features: Vec<_> = features.disabled();
+        enabled_features.sort();
+        disabled_features.sort();
+
         println!("Enabled features\n----------------");
-        for feature in features.enabled_features.iter() {
+        for feature in enabled_features {
             println!("  + {}", feature);
         }
         println!();
 
         println!("Disabled features\n-----------------");
-        for feature in features.disabled() {
+        for feature in disabled_features {
             println!("  - {}", feature);
         }
         println!();
@@ -133,6 +138,9 @@ mod info {
     pub fn print_dotfiles<I>(dotfiles: I, term: &mut StdoutTerminal) -> Result<(), io::Error>
         where I: IntoIterator<Item=Dotfile> {
         println!("Dotfiles\n--------");
+
+        let mut dotfiles: Vec<_> = dotfiles.into_iter().collect();
+        dotfiles.sort_by_key(|d| d.relative_path.clone());
 
         for dotfile in dotfiles {
             let symlink_path = symlink::path(&dotfile);
