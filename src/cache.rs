@@ -1,10 +1,12 @@
-use {Source, SourceSpec, Dotfile, FeatureSet};
+use {SourceSpec, Dotfile, FeatureSet};
+use backend::{self, Backend};
 use symlink;
 
-use git2::Repository;
 use walkdir::WalkDir;
+use toml;
 
-use std::path::{self, PathBuf};
+use std::io::prelude::*;
+use std::path::{self, Path, PathBuf};
 use std::{fs, io};
 
 /// Files which should not be considered dotfiles.
@@ -28,6 +30,13 @@ pub struct Cache {
 pub struct UserCache<'a> {
     cache: &'a Cache,
     username: String,
+}
+
+/// A manifest file for a user cache.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserManifest {
+    /// The source of the dotfiles.
+    pub source: SourceSpec,
 }
 
 impl Cache {
@@ -59,23 +68,42 @@ impl Cache {
 }
 
 impl<'a> UserCache<'a> {
-    fn path(&self) -> PathBuf { self.cache.path.join("users").join(&self.username) }
+    /// The path to the root of the user cache.
+    fn base_path(&self) -> PathBuf { self.cache.path.join("users").join(&self.username) }
+
+    /// Gets the path to the manifest file.
+    fn manifest_path(&self) -> PathBuf {
+        self.base_path().join("manifest.toml")
+    }
+
+    /// The path to the dotfiles subdirectory inside the cache.
+    fn dotfiles_path(&self) -> PathBuf {
+        self.base_path().join("dotfiles")
+    }
 
     /// Initializes cache for a user.
     pub fn initialize(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), io::Error> {
         // Clear the directory because it may already exist.
         // FIXME: we shoulnd't do this because initialisation may fail and we would
         // want to keep existing configuration.
-        if self.path().exists() {
-            fs::remove_dir_all(&self.path())?;
-            fs::create_dir_all(&self.path())?;
+        if self.dotfiles_path().exists() {
+            fs::remove_dir_all(&self.dotfiles_path())?;
+            fs::create_dir_all(&self.dotfiles_path())?;
         }
 
-        match source.canonical() {
-            Source::Git { url } => self.initialize_via_git(&url),
-        }?;
+        // Create the manifest file and save it to disk.
+        let manifest = UserManifest { source: source.clone() };
+        manifest.save(&self.manifest_path())?;
 
         self.build_symlinks(verbose)
+    }
+
+    /// Updates all of the dotfiles.
+    pub fn update(&mut self, verbose: bool) -> Result<(), io::Error> {
+        let (manifest, mut backend) = self.manifest_backend()?;
+
+        ilog!("updating dotfiles from {}", manifest.source.description());
+        backend.update(verbose)
     }
 
     /// Rebuilds symbolic links for the user.
@@ -86,9 +114,11 @@ impl<'a> UserCache<'a> {
     /// Cleans out all dotfiles.
     pub fn clean(&mut self, verbose: bool) -> Result<(), io::Error> {
         for dotfile in self.dotfiles()? {
-            vlog!(verbose => "deleting {}", symlink::path(&dotfile).display());
+            if symlink::exists(&dotfile)? {
+                vlog!(verbose => "deleting {}", symlink::path(&dotfile).display());
 
-            symlink::destroy(&dotfile)?;
+                symlink::destroy(&dotfile)?;
+            }
         }
 
         Ok(())
@@ -98,7 +128,7 @@ impl<'a> UserCache<'a> {
     pub fn dotfiles(&self) -> Result<Vec<Dotfile>, io::Error> {
         let mut dotfiles = Vec::new();
 
-        for entry in WalkDir::new(self.path()) {
+        for entry in WalkDir::new(self.dotfiles_path()) {
             let entry = entry?;
 
             if !entry.path().is_file() { continue; }
@@ -118,12 +148,23 @@ impl<'a> UserCache<'a> {
             if !folder_blacklisted && !file_blacklisted {
                 dotfiles.push(Dotfile {
                     full_path: entry.path().to_owned(),
-                    relative_path: entry.path().strip_prefix(&self.path()).unwrap().to_owned(),
+                    relative_path: entry.path().strip_prefix(&self.dotfiles_path()).unwrap().to_owned(),
                 });
             }
         }
 
         Ok(dotfiles)
+    }
+
+    /// Gets the manifest.
+    pub fn manifest(&self) -> Result<UserManifest, io::Error> {
+        UserManifest::load(&self.manifest_path())
+    }
+
+    /// Gets the manifest and backend.
+    fn manifest_backend(&self) -> Result<(UserManifest, Box<Backend>), io::Error> {
+        let manifest = self.manifest()?;
+        backend::from_source(&self.dotfiles_path(), manifest.source.clone()).map(|b| (manifest, b))
     }
 
     /// Creates all symlinks.
@@ -144,18 +185,24 @@ impl<'a> UserCache<'a> {
 
         Ok(())
     }
+}
 
+impl UserManifest {
+    /// Loads the manifest from disk.
+    pub fn load(path: &Path) -> Result<Self, io::Error> {
+        let mut file = fs::File::open(path)?;
+        let mut manifest_toml = String::new();
+        file.read_to_string(&mut manifest_toml)?;
 
-    fn initialize_via_git(&mut self, repository_url: &str) -> Result<(), io::Error> {
-        ilog!("cloning from Git repository at '{}' to '{}'", repository_url, self.path().display());
+        Ok(toml::from_str(&manifest_toml).expect("could not parse user manifest"))
+    }
 
-        let _repo = match Repository::clone(repository_url, self.path()) {
-            Ok(repo) => repo,
-            Err(e) => fatal!("failed to clone: {}", e),
-        };
+    /// Saves the manifest to disk.
+    pub fn save(&self, path: &Path) -> Result<(), io::Error> {
+        let manifest_toml = toml::to_string(self).expect("failed to create manifest toml");
 
-        ilog!("successfully cloned Git repository");
-
+        let mut file = fs::File::create(path)?;
+        file.write_all(manifest_toml.as_bytes())?;
         Ok(())
     }
 }

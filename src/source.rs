@@ -1,4 +1,6 @@
-use std::fmt::Write;
+use serde;
+
+use std::fmt::{self, Write};
 use std::str::FromStr;
 
 /// The full URL to GitHub.
@@ -18,7 +20,7 @@ mod spec_matchers {
 }
 
 /// A source of dotfiles.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SourceSpec {
     /// A GitHub dotfiles repository.
     GitHub {
@@ -36,6 +38,7 @@ pub enum SourceSpec {
 #[derive(Clone, Debug)]
 pub enum Source {
     Git {
+        // FIXME: Make this borrowed.
         url: String,
     }
 }
@@ -81,6 +84,25 @@ impl SourceSpec
     }
 }
 
+impl fmt::Display for SourceSpec {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            SourceSpec::GitHub { ref username, ref repository } => {
+                write!(fmt, "github:{}", username)?;
+
+                if let Some(ref repo) = *repository {
+                    write!(fmt, "/{}", repo)?;
+                }
+            },
+            SourceSpec::Url(ref url) => {
+                write!(fmt, "{}", url)?;
+            },
+        }
+
+        Ok(())
+    }
+}
+
 impl FromStr for SourceSpec {
     type Err = &'static str;
 
@@ -95,6 +117,33 @@ impl FromStr for SourceSpec {
             // Assume URL if nothing else.
             Ok(SourceSpec::Url(s.to_owned()))
         }
+    }
+}
+
+impl serde::Serialize for SourceSpec {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: serde::Serializer {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SourceSpec {
+    fn deserialize<S>(deserializer: S) -> Result<Self, S::Error>
+        where S: serde::Deserializer<'de> {
+        use serde::de::Error;
+        let spec_str = String::deserialize(deserializer)?;
+
+        match spec_str.parse() {
+            Ok(spec) => Ok(spec),
+            Err(e) => Err(S::Error::custom(e.to_string())),
+        }
+
+    }
+}
+
+impl Into<Source> for SourceSpec {
+    fn into(self) -> Source {
+        self.canonical()
     }
 }
 
