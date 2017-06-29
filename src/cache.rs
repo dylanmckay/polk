@@ -1,6 +1,5 @@
 use {Source, SourceSpec, Dotfile, FeatureSet};
 use symlink;
-use term;
 
 use git2::Repository;
 use walkdir::WalkDir;
@@ -73,7 +72,7 @@ impl<'a> UserCache<'a> {
         }
 
         match source.canonical() {
-            Source::Git { url } => self.initialize_via_git(&url, verbose),
+            Source::Git { url } => self.initialize_via_git(&url),
         }?;
 
         self.build_symlinks(verbose)
@@ -87,9 +86,7 @@ impl<'a> UserCache<'a> {
     /// Cleans out all dotfiles.
     pub fn clean(&mut self, verbose: bool) -> Result<(), io::Error> {
         for dotfile in self.dotfiles()? {
-            if verbose {
-                println!("deleting {}", symlink::path(&dotfile).display());
-            }
+            vlog!(verbose => "deleting {}", symlink::path(&dotfile).display());
 
             symlink::destroy(&dotfile)?;
         }
@@ -137,20 +134,11 @@ impl<'a> UserCache<'a> {
             if features.supports(&dotfile) {
                 symlink::build(&dotfile)?;
 
-                if verbose {
-                    let mut t = term::stdout().unwrap();
-
-                    let symlink_path = symlink::path(&dotfile);
-                    print!("{}", dotfile.full_path.display());
-
-                    t.fg(term::color::YELLOW)?;
-                    print!(" -> {}", symlink_path.display());
-                    t.reset()?;
-                    println!();
-                }
+                let symlink_path = symlink::path(&dotfile);
+                vlog!(verbose => "created {} -> {}", dotfile.full_path.display(), symlink_path.display());
             } else {
-                println!("ignoring '{}' because is is not supported by this machine",
-                         dotfile.relative_path.display());
+                ilog!("ignoring '{}' because is is not supported by this machine",
+                      dotfile.relative_path.display());
             }
         }
 
@@ -158,15 +146,15 @@ impl<'a> UserCache<'a> {
     }
 
 
-    fn initialize_via_git(&mut self, repository_url: &str, verbose: bool) -> Result<(), io::Error> {
-        if verbose { println!("Cloning from Git repository at '{}' to '{}'", repository_url, self.path().display()); }
+    fn initialize_via_git(&mut self, repository_url: &str) -> Result<(), io::Error> {
+        ilog!("cloning from Git repository at '{}' to '{}'", repository_url, self.path().display());
 
         let _repo = match Repository::clone(repository_url, self.path()) {
             Ok(repo) => repo,
-            Err(e) => panic!("failed to clone: {}", e),
+            Err(e) => fatal!("failed to clone: {}", e),
         };
 
-        if verbose { println!("Successfully cloned Git repository"); }
+        ilog!("successfully cloned Git repository");
 
         Ok(())
     }

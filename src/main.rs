@@ -10,6 +10,8 @@ pub use self::cache::Cache;
 pub use self::source::{Source, SourceSpec};
 pub use self::feature::FeatureSet;
 
+#[macro_use]
+pub mod log;
 pub mod cache;
 pub mod source;
 pub mod symlink;
@@ -67,33 +69,14 @@ fn dotty() -> Result<(), ::std::io::Error> {
 
     match matches.subcommand() {
         ("", None) => {
-            eprintln!("please enter a subcommand");
+            fatal!("please enter a subcommand");
         },
         ("setup", Some(setup_matches)) => {
             // Gets a value for config if supplied by user, or defaults to "default.conf"
             let source_str = setup_matches.value_of("SOURCE").unwrap();
             let source_spec: SourceSpec = source_str.parse().unwrap();
 
-            if verbose {
-                print!("Getting dotfiles from ");
-
-                match source_spec {
-                    SourceSpec::GitHub { ref username, ref repository } => {
-                        print!("the GitHub repository owned by '{}' ", username);
-
-                        if let Some(ref repo) = *repository {
-                            print!("named '{}'", repo);
-                        } else {
-                            print!(", assuming repository named '{}'", source::DEFAULT_GIT_REPOSITORY_NAME);
-                        }
-                    },
-                    SourceSpec::Url(ref url) => {
-                        print!("the url at {}", url);
-                    },
-                }
-
-                println!();
-            }
+            vlog!(verbose => "Getting dotfiles from {}", source_spec.description());
 
             user_cache.initialize(&source_spec, verbose)?;
         },
@@ -119,7 +102,7 @@ fn main() {
     match dotty() {
         Ok(..) => (),
         Err(e) => {
-            eprintln!("error: {}", e);
+            fatal!("{}", e);
         },
     }
 }

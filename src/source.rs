@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::str::FromStr;
 
 /// The full URL to GitHub.
@@ -55,6 +56,28 @@ impl SourceSpec
                 Source::Git { url: url.clone() }
             },
         }
+    }
+
+    /// Gets a human readable description of the spec.
+    pub fn description(&self) -> String {
+        let mut d = String::new();
+
+        match *self {
+            SourceSpec::GitHub { ref username, ref repository } => {
+                write!(d, "the GitHub repository owned by '{}' ", username).unwrap();
+
+                if let Some(ref repo) = *repository {
+                    write!(d, "named '{}'", repo).unwrap();
+                } else {
+                    write!(d, ", assuming repository named '{}'", DEFAULT_GIT_REPOSITORY_NAME).unwrap();
+                }
+            },
+            SourceSpec::Url(ref url) => {
+                write!(d, "the url at {}", url).unwrap();
+            },
+        }
+
+        d
     }
 }
 

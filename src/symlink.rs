@@ -1,7 +1,7 @@
 use Dotfile;
 
-use std::path::PathBuf;
-use std::{io, fs, env};
+use std::path::{PathBuf, Path};
+use std::{io, fs};
 use std::os::unix;
 
 /// Creates a symlink to a dotfile.
@@ -10,17 +10,23 @@ pub fn build(dotfile: &Dotfile) -> Result<(), io::Error> {
 
     if dest_path.exists() {
         if dest_path.is_dir() {
-            eprintln!("skipping dotfile because there is a directory at '{}'",
-                      dest_path.display());
+            warn!("there is an existing directory at '{}', will not create symlink", dest_path.display());
+            return Ok(());
         } else {
             let metadata = fs::symlink_metadata(&dest_path)?;
 
             if metadata.file_type().is_symlink() {
-                eprintln!("there is an existing symlink at '{}', deleting it", dest_path.display());
-                fs::remove_file(&dest_path)?;
+                let current_target = fs::read_link(&dest_path)?;
+
+                if current_target.canonicalize().unwrap() == dotfile.full_path.canonicalize().unwrap() {
+                    // No harm in recreating a symlink to the same location.
+                    fs::remove_file(&dest_path)?;
+                } else {
+                    ilog!("there is an existing symlink to a different file at '{}', deleting it", dest_path.display());
+                }
             } else {
-                eprintln!("there is an existing file at '{}'!", dest_path.display());
-                unimplemented!();
+                warn!("there is an existing file at '{}', will not create symlink", dest_path.display());
+                return Ok(());
             }
         }
     }
@@ -69,7 +75,7 @@ pub fn exists(dotfile: &Dotfile) -> Result<bool, io::Error> {
 /// Gets the path where where the dotfile symlink should live.
 pub fn path(dotfile: &Dotfile) -> PathBuf {
     // let home_dir = env::home_dir().expect("user has no home directory");
-    let home_dir = env::current_dir().unwrap().join("dotfiles");
+    let home_dir = Path::new("/tmp/dotfiles");
     home_dir.join(&dotfile.relative_path)
 }
 
