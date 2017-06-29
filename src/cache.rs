@@ -1,5 +1,6 @@
-use {Source, SourceSpec, Dotfile};
+use {Source, SourceSpec, Dotfile, FeatureSet};
 use symlink;
+use term;
 
 use git2::Repository;
 use walkdir::WalkDir;
@@ -62,7 +63,7 @@ impl<'a> UserCache<'a> {
     fn path(&self) -> PathBuf { self.cache.path.join("users").join(&self.username) }
 
     /// Initializes cache for a user.
-    pub fn initialize(&mut self, source: &SourceSpec) -> Result<(), io::Error> {
+    pub fn initialize(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), io::Error> {
         // Clear the directory because it may already exist.
         // FIXME: we shoulnd't do this because initialisation may fail and we would
         // want to keep existing configuration.
@@ -72,21 +73,24 @@ impl<'a> UserCache<'a> {
         }
 
         match source.canonical() {
-            Source::Git { url } => self.initialize_via_git(&url),
-        }
+            Source::Git { url } => self.initialize_via_git(&url, verbose),
+        }?;
+
+        self.build_symlinks(verbose)
     }
 
     /// Rebuilds symbolic links for the user.
-    pub fn rehash(&mut self) -> Result<(), io::Error> {
-        for dotfile in self.dotfiles()? {
-            symlink::build(&dotfile)?;
-        }
-
-        Ok(())
+    pub fn rehash(&mut self, verbose: bool) -> Result<(), io::Error> {
+        self.build_symlinks(verbose)
     }
 
-    pub fn clean(&mut self) -> Result<(), io::Error> {
+    /// Cleans out all dotfiles.
+    pub fn clean(&mut self, verbose: bool) -> Result<(), io::Error> {
         for dotfile in self.dotfiles()? {
+            if verbose {
+                println!("deleting {}", symlink::path(&dotfile).display());
+            }
+
             symlink::destroy(&dotfile)?;
         }
 
@@ -125,11 +129,44 @@ impl<'a> UserCache<'a> {
         Ok(dotfiles)
     }
 
-    fn initialize_via_git(&mut self, repository_url: &str) -> Result<(), io::Error> {
+    /// Creates all symlinks.
+    fn build_symlinks(&mut self, verbose: bool) -> Result<(), io::Error> {
+        let features = FeatureSet::current_system();
+
+        for dotfile in self.dotfiles()? {
+            if features.supports(&dotfile) {
+                symlink::build(&dotfile)?;
+
+                if verbose {
+                    let mut t = term::stdout().unwrap();
+
+                    let symlink_path = symlink::path(&dotfile);
+                    print!("{}", dotfile.full_path.display());
+
+                    t.fg(term::color::YELLOW)?;
+                    print!(" -> {}", symlink_path.display());
+                    t.reset()?;
+                    println!();
+                }
+            } else {
+                println!("ignoring '{}' because is is not supported by this machine",
+                         dotfile.relative_path.display());
+            }
+        }
+
+        Ok(())
+    }
+
+
+    fn initialize_via_git(&mut self, repository_url: &str, verbose: bool) -> Result<(), io::Error> {
+        if verbose { println!("Cloning from Git repository at '{}' to '{}'", repository_url, self.path().display()); }
+
         let _repo = match Repository::clone(repository_url, self.path()) {
             Ok(repo) => repo,
             Err(e) => panic!("failed to clone: {}", e),
         };
+
+        if verbose { println!("Successfully cloned Git repository"); }
 
         Ok(())
     }

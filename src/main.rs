@@ -4,13 +4,16 @@ extern crate regex;
 #[macro_use]
 extern crate lazy_static;
 extern crate walkdir;
+extern crate term;
 
 pub use self::cache::Cache;
 pub use self::source::{Source, SourceSpec};
+pub use self::feature::FeatureSet;
 
 pub mod cache;
 pub mod source;
 pub mod symlink;
+pub mod feature;
 
 /// A single dotfile.
 pub struct Dotfile
@@ -41,6 +44,10 @@ fn dotty() -> Result<(), ::std::io::Error> {
                           .version(env!("CARGO_PKG_VERSION"))
                           .author(env!("CARGO_PKG_AUTHORS"))
                           .about(env!("CARGO_PKG_DESCRIPTION"))
+                          .arg(Arg::with_name("verbose")
+                               .short("v")
+                               .long("verbose")
+                               .help("Enables verbose output"))
                           .subcommand(SubCommand::with_name("setup")
                                       .about("Sets up dotfiles")
                                       .arg(Arg::with_name("SOURCE")
@@ -55,6 +62,9 @@ fn dotty() -> Result<(), ::std::io::Error> {
                                       .about("List information"))
                           .get_matches();
 
+    let verbose = matches.is_present("verbose");
+    let mut term = term::stdout().unwrap();
+
     match matches.subcommand() {
         ("", None) => {
             eprintln!("please enter a subcommand");
@@ -64,21 +74,40 @@ fn dotty() -> Result<(), ::std::io::Error> {
             let source_str = setup_matches.value_of("SOURCE").unwrap();
             let source_spec: SourceSpec = source_str.parse().unwrap();
 
-            println!("Setting up");
-            println!("{:?}", source_spec);
+            if verbose {
+                print!("Getting dotfiles from ");
 
-            user_cache.initialize(&source_spec)?;
+                match source_spec {
+                    SourceSpec::GitHub { ref username, ref repository } => {
+                        print!("the GitHub repository owned by '{}' ", username);
+
+                        if let Some(ref repo) = *repository {
+                            print!("named '{}'", repo);
+                        } else {
+                            print!(", assuming repository named '{}'", source::DEFAULT_GIT_REPOSITORY_NAME);
+                        }
+                    },
+                    SourceSpec::Url(ref url) => {
+                        print!("the url at {}", url);
+                    },
+                }
+
+                println!();
+            }
+
+            user_cache.initialize(&source_spec, verbose)?;
         },
         ("rehash", _) => {
-            user_cache.rehash()?;
+            user_cache.rehash(verbose)?;
         },
         ("clean", _) => {
-            user_cache.clean()?;
+            user_cache.clean(verbose)?;
         },
         ("info", _) => {
-            for dotfile in user_cache.dotfiles()? {
-                println!("{}", dotfile.relative_path.display());
-            }
+            let features = feature::FeatureSet::current_system();
+
+            info::print_features(&features)?;
+            info::print_dotfiles(user_cache.dotfiles()?, &mut *term)?;
         },
         _ => unreachable!(),
     }
@@ -92,6 +121,71 @@ fn main() {
         Err(e) => {
             eprintln!("error: {}", e);
         },
+    }
+}
+
+mod info {
+    use {Dotfile, FeatureSet};
+    use {symlink, feature};
+
+    use term::StdoutTerminal;
+    use term;
+    use std::io;
+
+    pub fn print_features(features: &FeatureSet) -> Result<(), io::Error> {
+        println!("Enabled features\n----------------");
+        for feature in features.enabled_features.iter() {
+            println!("  + {}", feature);
+        }
+        println!();
+
+        println!("Disabled features\n-----------------");
+        for feature in features.disabled() {
+            println!("  - {}", feature);
+        }
+        println!();
+        Ok(())
+    }
+
+    pub fn print_dotfiles<I>(dotfiles: I, term: &mut StdoutTerminal) -> Result<(), io::Error>
+        where I: IntoIterator<Item=Dotfile> {
+        println!("Dotfiles\n--------");
+
+        for dotfile in dotfiles {
+            let symlink_path = symlink::path(&dotfile);
+            let symlink_exists = symlink::exists(&dotfile)?;
+            let required_features: Vec<_> = feature::required_features(&dotfile).into_iter().collect();
+
+            let bullet = if symlink_exists {
+                term.fg(term::color::GREEN)?;
+                "+"
+            } else {
+                term.fg(term::color::RED)?;
+                "-"
+            };
+
+            print!("  {} ", bullet);
+
+            term.reset()?;
+
+            print!("{}", dotfile.full_path.display());
+
+            if symlink_exists {
+                term.fg(term::color::GREEN)?;
+                print!(" -> {}", symlink_path.display());
+                term.reset()?;
+            }
+
+            if !required_features.is_empty() {
+                term.fg(term::color::YELLOW)?;
+                print!(" requires: [{}]", required_features.join(", "));
+                term.reset()?;
+            }
+
+            println!();
+        }
+
+        Ok(())
     }
 }
 
