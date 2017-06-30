@@ -20,10 +20,19 @@ dotty setup github:dylanmckay
 # Grab and symlink dotfiles from another repository.
 dotty setup github:dylanmckay/otherdotfiles
 
-# Remove all symlinks created by dotty.
-dotty clean
+# Download dotfiles to a local cache folder but don't create symlinks
+dotty grab github:dylanmckay
 
-# Print all symlink information
+# Create symlinks to the currently grabbed dotfiles
+dotty link
+
+# Update the dotfiles.
+dotty update
+
+# Remove all symlinks created by dotty.
+dotty unlink
+
+# Print a bunch of information
 dotty info
 ```
 

@@ -67,8 +67,8 @@ fn dotty() -> Result<(), Error> {
                                .short("v")
                                .long("verbose")
                                .help("Enables verbose output"))
-                          .subcommand(SubCommand::with_name("fetch")
-                                      .about("Fetches dotfiles but does not create symlinks to them")
+                          .subcommand(SubCommand::with_name("grab")
+                                      .about("Downloads dotfiles but does not create symlinks to them")
                                       .arg(Arg::with_name("SOURCE")
                                            .help("Sets the source of the dotfiles")
                                            .required(true)
@@ -81,10 +81,10 @@ fn dotty() -> Result<(), Error> {
                                            .index(1)))
                           .subcommand(SubCommand::with_name("update")
                                       .about("Updates dotfiles via the internet"))
-                          .subcommand(SubCommand::with_name("rehash")
-                                      .about("Recreates symbolic links to dotfiles"))
-                          .subcommand(SubCommand::with_name("clean")
-                                      .about("Clears all symbolic links"))
+                          .subcommand(SubCommand::with_name("link")
+                                      .about("Creates symbolic links to dotfiles"))
+                          .subcommand(SubCommand::with_name("unlink")
+                                      .about("Deletes all symbolic links"))
                           .subcommand(SubCommand::with_name("info")
                                       .about("List information"))
                           .get_matches();
@@ -96,7 +96,7 @@ fn dotty() -> Result<(), Error> {
         ("", None) => {
             fatal!("please enter a subcommand");
         },
-        ("fetch", Some(cmd_matches)) |
+        ("grab", Some(cmd_matches)) |
         ("setup", Some(cmd_matches)) => {
             let subcommand = matches.subcommand().0;
 
@@ -107,7 +107,7 @@ fn dotty() -> Result<(), Error> {
             vlog!(verbose => "Getting dotfiles from {}", source_spec.description());
 
             match subcommand {
-                "fetch" => user_cache.fetch(&source_spec, verbose)?,
+                "grab" => user_cache.grab(&source_spec, verbose)?,
                 "setup" => user_cache.setup(&source_spec, verbose)?,
                 _ => unreachable!(),
             }
@@ -115,11 +115,11 @@ fn dotty() -> Result<(), Error> {
         ("update", _) => {
             user_cache.update(verbose)?;
         },
-        ("rehash", _) => {
-            user_cache.rehash(verbose)?;
+        ("link", _) => {
+            user_cache.link(verbose)?;
         },
-        ("clean", _) => {
-            user_cache.clean(verbose)?;
+        ("unlink", _) => {
+            user_cache.unlink(verbose)?;
         },
         ("info", _) => {
             let features = feature::FeatureSet::current_system();

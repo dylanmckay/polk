@@ -83,13 +83,13 @@ impl<'a> UserCache<'a> {
 
     /// Fetches dotfiles *and* creates symlinks.
     pub fn setup(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
-        self.fetch(source, verbose)?;
+        self.grab(source, verbose)?;
 
         self.build_symlinks(verbose).chain_err(|| "could not build symlinks")
     }
 
-    /// Fetches dotfiles but does not create symlinks.
-    pub fn fetch(&mut self, source: &SourceSpec, _verbose: bool) -> Result<(), Error> {
+    /// Downloadu dotfiles but does not create symlinks.
+    pub fn grab(&mut self, source: &SourceSpec, _verbose: bool) -> Result<(), Error> {
         // Create the parent directory if it doesn't exist.
         if let Some(parent) = self.dotfiles_path().parent() {
             if !parent.exists() {
@@ -117,12 +117,12 @@ impl<'a> UserCache<'a> {
     }
 
     /// Rebuilds symbolic links for the user.
-    pub fn rehash(&mut self, verbose: bool) -> Result<(), Error> {
+    pub fn link(&mut self, verbose: bool) -> Result<(), Error> {
         self.build_symlinks(verbose)
     }
 
-    /// Cleans out all dotfiles.
-    pub fn clean(&mut self, verbose: bool) -> Result<(), Error> {
+    /// Deletes all symbolic links.
+    pub fn unlink(&mut self, verbose: bool) -> Result<(), Error> {
         for dotfile in self.dotfiles()? {
             if symlink::exists(&dotfile)? {
                 vlog!(verbose => "deleting {}", symlink::path(&dotfile).display());
