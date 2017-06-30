@@ -9,13 +9,19 @@ pub trait Backend {
     fn update(&mut self, verbose: bool) -> Result<(), Error>;
 }
 
-/// Creates a new backend from a source.
-pub fn from_source<S>(dest: &Path, source: S) -> Result<Box<Backend>, Error>
+/// Initializes a new backend.
+pub fn setup<S>(dest: &Path, source: S) -> Result<Box<Backend>, Error>
     where S: Into<Source> {
     match source.into() {
-        Source::Git { ref url } => {
-            Ok(Box::new(git::Git::open_or_create(dest, url)?) as _)
-        },
+        Source::Git { ref url } => git::Git::setup(dest, url).map(|b| Box::new(b) as _),
+    }
+}
+
+/// Opens an existing backend.
+pub fn open<S>(path: &Path, source: S) -> Result<Box<Backend>, Error>
+    where S: Into<Source> {
+    match source.into() {
+        Source::Git { .. } => git::Git::open(path).map(|b| Box::new(b) as _),
     }
 }
 

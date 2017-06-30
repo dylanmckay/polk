@@ -67,8 +67,14 @@ fn dotty() -> Result<(), Error> {
                                .short("v")
                                .long("verbose")
                                .help("Enables verbose output"))
+                          .subcommand(SubCommand::with_name("fetch")
+                                      .about("Fetches dotfiles but does not create symlinks to them")
+                                      .arg(Arg::with_name("SOURCE")
+                                           .help("Sets the source of the dotfiles")
+                                           .required(true)
+                                           .index(1)))
                           .subcommand(SubCommand::with_name("setup")
-                                      .about("Sets up dotfiles")
+                                      .about("Fetches dotfiles and creates symlinks to them")
                                       .arg(Arg::with_name("SOURCE")
                                            .help("Sets the source of the dotfiles")
                                            .required(true)
@@ -90,14 +96,21 @@ fn dotty() -> Result<(), Error> {
         ("", None) => {
             fatal!("please enter a subcommand");
         },
-        ("setup", Some(setup_matches)) => {
+        ("fetch", Some(cmd_matches)) |
+        ("setup", Some(cmd_matches)) => {
+            let subcommand = matches.subcommand().0;
+
             // Gets a value for config if supplied by user, or defaults to "default.conf"
-            let source_str = setup_matches.value_of("SOURCE").unwrap();
+            let source_str = cmd_matches.value_of("SOURCE").unwrap();
             let source_spec: SourceSpec = source_str.parse()?;
 
             vlog!(verbose => "Getting dotfiles from {}", source_spec.description());
 
-            user_cache.setup(&source_spec, verbose)?;
+            match subcommand {
+                "fetch" => user_cache.fetch(&source_spec, verbose)?,
+                "setup" => user_cache.setup(&source_spec, verbose)?,
+                _ => unreachable!(),
+            }
         },
         ("update", _) => {
             user_cache.update(verbose)?;

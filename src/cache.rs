@@ -81,25 +81,36 @@ impl<'a> UserCache<'a> {
         self.base_path().join("dotfiles")
     }
 
-    /// Initializes cache for a user.
+    /// Fetches dotfiles *and* creates symlinks.
     pub fn setup(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
-        backup::path(self.dotfiles_path(), || {
-            fs::create_dir_all(&self.dotfiles_path()).chain_err(|| "could not create old dotfiles cache directory")?;
+        self.fetch(source, verbose)?;
 
+        self.build_symlinks(verbose).chain_err(|| "could not build symlinks")
+    }
+
+    /// Fetches dotfiles but does not create symlinks.
+    pub fn fetch(&mut self, source: &SourceSpec, _verbose: bool) -> Result<(), Error> {
+        // Create the parent directory if it doesn't exist.
+        if let Some(parent) = self.dotfiles_path().parent() {
+            if !parent.exists() {
+                fs::create_dir_all(&parent)?;
+            }
+        }
+
+        backup::path(self.dotfiles_path(), || {
             // Create the manifest file and save it to disk.
             let manifest = UserManifest { source: source.clone() };
             manifest.save(&self.manifest_path()).chain_err(|| "could not save user cache manifest")?;
 
-            // Retrieve the backend because it will get built if it doesn't exist.
-            let (_, _backend) = self.manifest_backend()?;
-
-            self.build_symlinks(verbose).chain_err(|| "could not build symlinks")
+            // Set up the Git repository, etc
+            backend::setup(&self.dotfiles_path(), manifest.source)?;
+            Ok(())
         })
     }
 
     /// Updates all of the dotfiles.
     pub fn update(&mut self, verbose: bool) -> Result<(), Error> {
-        let (manifest, mut backend) = self.manifest_backend()?;
+        let (manifest, mut backend) = self.open_manifest_backend()?;
 
         ilog!("updating dotfiles from {}", manifest.source.description());
         backend.update(verbose)
@@ -161,9 +172,9 @@ impl<'a> UserCache<'a> {
     }
 
     /// Gets the manifest and backend.
-    fn manifest_backend(&self) -> Result<(UserManifest, Box<Backend>), Error> {
+    fn open_manifest_backend(&self) -> Result<(UserManifest, Box<Backend>), Error> {
         let manifest = self.manifest()?;
-        backend::from_source(&self.dotfiles_path(), manifest.source.clone()).map(|b| (manifest, b))
+        backend::open(&self.dotfiles_path(), manifest.source.clone()).map(|b| (manifest, b))
     }
 
     /// Creates all symlinks.
