@@ -43,9 +43,17 @@ fn open_cache() -> Cache {
     Cache::at(path.to_owned()).unwrap()
 }
 
+/// Gets the username of the current user.
+fn username() -> String {
+    match env::var("USER") {
+        Ok(username) => username,
+        Err(e) => fatal_error!(e, "could not get username"),
+    }
+}
+
 fn dotty() -> Result<(), ::std::io::Error> {
     let cache = open_cache();
-    let mut user_cache = cache.user("dylan");
+    let mut user_cache = cache.user(username());
 
     let matches = App::new("Dotty")
                           .version(env!("CARGO_PKG_VERSION"))

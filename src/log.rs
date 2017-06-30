@@ -30,6 +30,16 @@ macro_rules! fatal {
     }
 }
 
+/// Prints out a fatal `Error` and an explanation message then
+/// terminates the process.
+macro_rules! fatal_error {
+    ($error:expr, $message:expr) => {
+        {
+            fatal!("{}: {}", $message, $error)
+        }
+    }
+}
+
 /// Write a generic log message to standard error.
 macro_rules! log {
     ($label:expr, $color:ident,
