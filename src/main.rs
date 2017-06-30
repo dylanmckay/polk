@@ -10,7 +10,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
-pub use self::cache::Cache;
+pub use self::cache::{Cache, UserCache};
 pub use self::source::{Source, SourceSpec};
 pub use self::feature::FeatureSet;
 
@@ -100,6 +100,7 @@ fn dotty() -> Result<(), ::std::io::Error> {
             let features = feature::FeatureSet::current_system();
 
             info::print_features(&features)?;
+            info::print_configuration(&user_cache)?;
             info::print_dotfiles(user_cache.dotfiles()?, &mut *term)?;
         },
         _ => unreachable!(),
@@ -118,7 +119,7 @@ fn main() {
 }
 
 mod info {
-    use {Dotfile, FeatureSet};
+    use {Dotfile, FeatureSet, UserCache};
     use {symlink, feature};
 
     use term::StdoutTerminal;
@@ -142,6 +143,14 @@ mod info {
             println!("  - {}", feature);
         }
         println!();
+        Ok(())
+    }
+
+    pub fn print_configuration(user_cache: &UserCache) -> Result<(), io::Error> {
+        println!("Configuration\n-------------");
+        println!("  user cache: {}", user_cache.base_path().display());
+        println!();
+
         Ok(())
     }
 

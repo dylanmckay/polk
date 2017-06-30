@@ -69,7 +69,7 @@ impl Cache {
 
 impl<'a> UserCache<'a> {
     /// The path to the root of the user cache.
-    fn base_path(&self) -> PathBuf { self.cache.path.join("users").join(&self.username) }
+    pub fn base_path(&self) -> PathBuf { self.cache.path.join("users").join(&self.username) }
 
     /// Gets the path to the manifest file.
     fn manifest_path(&self) -> PathBuf {
