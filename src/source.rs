@@ -39,7 +39,6 @@ pub enum SourceSpec {
 #[derive(Clone, Debug)]
 pub enum Source {
     Git {
-        // FIXME: Make this borrowed.
         url: String,
     }
 }
