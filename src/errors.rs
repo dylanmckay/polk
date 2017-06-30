@@ -10,12 +10,4 @@ error_chain! {
         Term(::term::Error);
         Git(::git2::Error);
     }
-
-    errors {
-        // FIXME: remove, example code
-        InvalidToolchainName(t: String) {
-            description("invalid toolchain name")
-            display("invalid toolchain name: '{}'", t)
-        }
-    }
 }
