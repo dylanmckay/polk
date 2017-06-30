@@ -1,11 +1,11 @@
-use Dotfile;
+use {Dotfile, Error};
 
 use std::path::{PathBuf, Path};
-use std::{io, fs};
+use std::fs;
 use std::os::unix;
 
 /// Creates a symlink to a dotfile.
-pub fn build(dotfile: &Dotfile) -> Result<(), io::Error> {
+pub fn build(dotfile: &Dotfile) -> Result<(), Error> {
     let dest_path = self::path(dotfile);
 
     if dest_path.exists() {
@@ -46,15 +46,16 @@ pub fn build(dotfile: &Dotfile) -> Result<(), io::Error> {
 }
 
 /// Destroys the symlink to a dotfile.
-pub fn destroy(dotfile: &Dotfile) -> Result<(), io::Error> {
+pub fn destroy(dotfile: &Dotfile) -> Result<(), Error> {
     use std::io::ErrorKind::NotFound;
 
     let dest_path = self::path(dotfile);
 
     match fs::remove_file(&dest_path) {
+        Ok(..) => Ok(()),
         // No point complaining if the symlink is already gone.
         Err(ref e) if e.kind() == NotFound => Ok(()),
-        result => result,
+        Err(e) => Err(e.into()),
     }
 
     // TODO: We could clean up any subdirectories which only
@@ -63,7 +64,7 @@ pub fn destroy(dotfile: &Dotfile) -> Result<(), io::Error> {
 }
 
 /// Checks if the symlink for a dotfile exists.
-pub fn exists(dotfile: &Dotfile) -> Result<bool, io::Error> {
+pub fn exists(dotfile: &Dotfile) -> Result<bool, Error> {
     let symlink_path = self::path(dotfile);
 
     if !symlink_path.exists() { return Ok(false); }

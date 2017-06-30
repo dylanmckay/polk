@@ -9,10 +9,13 @@ extern crate toml;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+extern crate error_chain;
 
 pub use self::cache::{Cache, UserCache};
 pub use self::source::{Source, SourceSpec};
 pub use self::feature::FeatureSet;
+pub use self::errors::{Error, ErrorKind};
 
 #[macro_use]
 pub mod log;
@@ -21,6 +24,7 @@ pub mod source;
 pub mod symlink;
 pub mod feature;
 pub mod backend;
+pub mod errors;
 
 /// A single dotfile.
 pub struct Dotfile
@@ -51,7 +55,7 @@ fn username() -> String {
     }
 }
 
-fn dotty() -> Result<(), ::std::io::Error> {
+fn dotty() -> Result<(), Error> {
     let cache = open_cache();
     let mut user_cache = cache.user(username());
 
@@ -127,14 +131,13 @@ fn main() {
 }
 
 mod info {
-    use {Dotfile, FeatureSet, UserCache};
+    use {Dotfile, FeatureSet, UserCache, Error};
     use {symlink, feature};
 
     use term::StdoutTerminal;
     use term;
-    use std::io;
 
-    pub fn print_features(features: &FeatureSet) -> Result<(), io::Error> {
+    pub fn print_features(features: &FeatureSet) -> Result<(), Error> {
         let mut enabled_features: Vec<_> = features.enabled_features.iter().cloned().collect();
         let mut disabled_features: Vec<_> = features.disabled();
         enabled_features.sort();
@@ -154,7 +157,7 @@ mod info {
         Ok(())
     }
 
-    pub fn print_configuration(user_cache: &UserCache) -> Result<(), io::Error> {
+    pub fn print_configuration(user_cache: &UserCache) -> Result<(), Error> {
         println!("Configuration\n-------------");
         println!("  user cache: {}", user_cache.base_path().display());
         println!();
@@ -162,7 +165,7 @@ mod info {
         Ok(())
     }
 
-    pub fn print_dotfiles<I>(dotfiles: I, term: &mut StdoutTerminal) -> Result<(), io::Error>
+    pub fn print_dotfiles<I>(dotfiles: I, term: &mut StdoutTerminal) -> Result<(), Error>
         where I: IntoIterator<Item=Dotfile> {
         println!("Dotfiles\n--------");
 

@@ -1,8 +1,8 @@
+use Error;
 use backend::Backend;
 
 use git2::{self, Repository, Direction, AutotagOption};
 use std::path::Path;
-use std::io;
 
 pub struct Git {
     /// The repository.
@@ -10,7 +10,7 @@ pub struct Git {
 }
 
 impl Git {
-    pub fn open(repo_path: &Path) -> Result<Git, io::Error> {
+    pub fn open(repo_path: &Path) -> Result<Git, Error> {
         let repo = match Repository::open(repo_path) {
             Ok(repo) => repo,
             Err(e) => fatal!("failed to clone: {}", e),
@@ -19,7 +19,7 @@ impl Git {
         Ok(Git { repo: repo })
     }
 
-    pub fn initialize(dest: &Path, source: &str) -> Result<Git, io::Error> {
+    pub fn initialize(dest: &Path, source: &str) -> Result<Git, Error> {
         ilog!("cloning from Git repository at '{}' to '{}'", dest.display(), source);
 
         let repo = match Repository::clone(source, dest) {
@@ -32,7 +32,7 @@ impl Git {
         Ok(Git { repo: repo })
     }
 
-    pub fn open_or_create(dest: &Path, source: &str) -> Result<Git, io::Error> {
+    pub fn open_or_create(dest: &Path, source: &str) -> Result<Git, Error> {
         if dest.join(".git").exists() {
             Git::open(dest)
         } else {
@@ -42,7 +42,7 @@ impl Git {
 }
 
 impl Backend for Git {
-    fn update(&mut self, _verbose: bool) -> Result<(), io::Error> {
+    fn update(&mut self, _verbose: bool) -> Result<(), Error> {
         // FIXME: complain when worktree is dirty
 
         self::ensure_head_is_named_reference(&mut self.repo).unwrap();

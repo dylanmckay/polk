@@ -1,4 +1,4 @@
-use {SourceSpec, Dotfile, FeatureSet};
+use {SourceSpec, Dotfile, FeatureSet, Error};
 use backend::{self, Backend};
 use symlink;
 
@@ -7,7 +7,7 @@ use toml;
 
 use std::io::prelude::*;
 use std::path::{self, Path, PathBuf};
-use std::{fs, io};
+use std::fs;
 
 /// Files which should not be considered dotfiles.
 pub const DOTFILE_FILE_BLACKLIST: &'static [&'static str] = &[
@@ -41,12 +41,12 @@ pub struct UserManifest {
 
 impl Cache {
     /// Opens or creates a cache directory given a path.
-    pub fn at(path: PathBuf) -> Result<Self, io::Error> {
+    pub fn at(path: PathBuf) -> Result<Self, Error> {
         if path.exists() { Cache::open(path) } else { Cache::create(path) }
     }
 
     /// Opens an existing cache directory.
-    pub fn open(path: PathBuf) -> Result<Self, io::Error> {
+    pub fn open(path: PathBuf) -> Result<Self, Error> {
         assert!(path.exists(), "cache must exist before opening");
         assert!(path.is_dir(), "cache path must be a directory");
 
@@ -54,7 +54,7 @@ impl Cache {
     }
 
     /// Creates a new cache directory.
-    pub fn create(path: PathBuf) -> Result<Self, io::Error> {
+    pub fn create(path: PathBuf) -> Result<Self, Error> {
         assert!(!path.exists(), "cache already exists in this directory");
 
         fs::create_dir_all(&path)?;
@@ -82,7 +82,7 @@ impl<'a> UserCache<'a> {
     }
 
     /// Initializes cache for a user.
-    pub fn initialize(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), io::Error> {
+    pub fn initialize(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
         // Clear the directory because it may already exist.
         // FIXME: we shoulnd't do this because initialisation may fail and we would
         // want to keep existing configuration.
@@ -99,7 +99,7 @@ impl<'a> UserCache<'a> {
     }
 
     /// Updates all of the dotfiles.
-    pub fn update(&mut self, verbose: bool) -> Result<(), io::Error> {
+    pub fn update(&mut self, verbose: bool) -> Result<(), Error> {
         let (manifest, mut backend) = self.manifest_backend()?;
 
         ilog!("updating dotfiles from {}", manifest.source.description());
@@ -107,12 +107,12 @@ impl<'a> UserCache<'a> {
     }
 
     /// Rebuilds symbolic links for the user.
-    pub fn rehash(&mut self, verbose: bool) -> Result<(), io::Error> {
+    pub fn rehash(&mut self, verbose: bool) -> Result<(), Error> {
         self.build_symlinks(verbose)
     }
 
     /// Cleans out all dotfiles.
-    pub fn clean(&mut self, verbose: bool) -> Result<(), io::Error> {
+    pub fn clean(&mut self, verbose: bool) -> Result<(), Error> {
         for dotfile in self.dotfiles()? {
             if symlink::exists(&dotfile)? {
                 vlog!(verbose => "deleting {}", symlink::path(&dotfile).display());
@@ -125,7 +125,7 @@ impl<'a> UserCache<'a> {
     }
 
     /// Gets all of the dotfiles in the cache.
-    pub fn dotfiles(&self) -> Result<Vec<Dotfile>, io::Error> {
+    pub fn dotfiles(&self) -> Result<Vec<Dotfile>, Error> {
         let mut dotfiles = Vec::new();
 
         for entry in WalkDir::new(self.dotfiles_path()) {
@@ -157,18 +157,18 @@ impl<'a> UserCache<'a> {
     }
 
     /// Gets the manifest.
-    pub fn manifest(&self) -> Result<UserManifest, io::Error> {
+    pub fn manifest(&self) -> Result<UserManifest, Error> {
         UserManifest::load(&self.manifest_path())
     }
 
     /// Gets the manifest and backend.
-    fn manifest_backend(&self) -> Result<(UserManifest, Box<Backend>), io::Error> {
+    fn manifest_backend(&self) -> Result<(UserManifest, Box<Backend>), Error> {
         let manifest = self.manifest()?;
         backend::from_source(&self.dotfiles_path(), manifest.source.clone()).map(|b| (manifest, b))
     }
 
     /// Creates all symlinks.
-    fn build_symlinks(&mut self, verbose: bool) -> Result<(), io::Error> {
+    fn build_symlinks(&mut self, verbose: bool) -> Result<(), Error> {
         let features = FeatureSet::current_system();
 
         for dotfile in self.dotfiles()? {
@@ -189,7 +189,7 @@ impl<'a> UserCache<'a> {
 
 impl UserManifest {
     /// Loads the manifest from disk.
-    pub fn load(path: &Path) -> Result<Self, io::Error> {
+    pub fn load(path: &Path) -> Result<Self, Error> {
         let mut file = fs::File::open(path)?;
         let mut manifest_toml = String::new();
         file.read_to_string(&mut manifest_toml)?;
@@ -198,7 +198,7 @@ impl UserManifest {
     }
 
     /// Saves the manifest to disk.
-    pub fn save(&self, path: &Path) -> Result<(), io::Error> {
+    pub fn save(&self, path: &Path) -> Result<(), Error> {
         let manifest_toml = toml::to_string(self).expect("failed to create manifest toml");
 
         let mut file = fs::File::create(path)?;
