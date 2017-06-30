@@ -7,6 +7,7 @@ error_chain! {
         Io(::std::io::Error);
         WalkDir(::walkdir::Error);
         Term(::term::Error);
+        Git(::git2::Error);
     }
 
     errors {

@@ -18,7 +18,7 @@ pub fn build(dotfile: &Dotfile) -> Result<(), Error> {
             if metadata.file_type().is_symlink() {
                 let current_target = fs::read_link(&dest_path)?;
 
-                if current_target.canonicalize().unwrap() == dotfile.full_path.canonicalize().unwrap() {
+                if current_target.canonicalize()? == dotfile.full_path.canonicalize()? {
                     // No harm in recreating a symlink to the same location.
                     fs::remove_file(&dest_path)?;
                 } else {

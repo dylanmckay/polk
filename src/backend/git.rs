@@ -45,24 +45,29 @@ impl Backend for Git {
     fn update(&mut self, _verbose: bool) -> Result<(), Error> {
         // FIXME: complain when worktree is dirty
 
-        self::ensure_head_is_named_reference(&mut self.repo).unwrap();
-        let mut original_head = self.repo.head().unwrap();
+        self::ensure_head_is_named_reference(&mut self.repo)?;
+        let mut original_head = self.repo.head()?;
         assert!(original_head.is_branch(), "HEAD is not a branch");
 
         let branch_name = original_head.shorthand().unwrap().to_owned();
 
-        let remote_name = self.repo.remotes().unwrap().iter().next().unwrap().unwrap().to_owned();
-        let mut remote = self.repo.find_remote(&remote_name).unwrap();
+        let remote_name = if let Some(name) = self.repo.remotes()?.iter().next() {
+            name.expect("branch name is not valid utf-8").to_owned()
+        } else {
+            return Err("repository has no remotes set up".into());
+        };
 
-        remote.connect(Direction::Fetch).unwrap();
-        remote.download(&[], None).unwrap();
+        let mut remote = self.repo.find_remote(&remote_name)?;
+
+        remote.connect(Direction::Fetch)?;
+        remote.download(&[], None)?;
         remote.disconnect();
 
         remote.update_tips(None, true,
-                           AutotagOption::Unspecified, None).unwrap();
+                           AutotagOption::Unspecified, None)?;
         let remote_ref_name = format!("refs/remotes/{}/{}", remote_name, branch_name);
-        let remote_ref = self.repo.find_reference(&remote_ref_name).unwrap();
-        let current_head = original_head.set_target(remote_ref.target().unwrap(), "updating branch for new dotfiles").unwrap();
+        let remote_ref = self.repo.find_reference(&remote_ref_name)?;
+        let current_head = original_head.set_target(remote_ref.target().unwrap(), "updating branch for new dotfiles")?;
         let original_oid = original_head.target().unwrap();
         let current_oid = current_head.target().unwrap();
 
@@ -71,9 +76,9 @@ impl Backend for Git {
             ilog!("already up-to-date with {} at {}", branch_name, current_oid_label);
         } else {
             // Build a revwalk over all new commits.
-            let mut revwalk = self.repo.revwalk().unwrap();
-            revwalk.push(current_oid).unwrap();
-            revwalk.hide(original_oid).unwrap();
+            let mut revwalk = self.repo.revwalk()?;
+            revwalk.push(current_oid)?;
+            revwalk.hide(original_oid)?;
 
             ilog!("");
             ilog!("Commits");
@@ -81,8 +86,8 @@ impl Backend for Git {
 
             // Print a diff.
             for oid in revwalk {
-                let oid = oid.unwrap();
-                let commit = self.repo.find_commit(oid).unwrap();
+                let oid = oid?;
+                let commit = self.repo.find_commit(oid)?;
                 let oid_label = &oid.to_string()[..7];
 
                 ilog!("{} {}", oid_label, commit.message().unwrap().trim());

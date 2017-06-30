@@ -1,3 +1,4 @@
+use Error;
 use serde;
 
 use std::fmt::{self, Write};
@@ -104,9 +105,9 @@ impl fmt::Display for SourceSpec {
 }
 
 impl FromStr for SourceSpec {
-    type Err = &'static str;
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, &'static str> {
+    fn from_str(s: &str) -> Result<Self, Error> {
         if spec_matchers::GITHUB.is_match(s) {
             let captures = spec_matchers::GITHUB.captures(s).unwrap();
             let username = captures.get(1).unwrap().as_str().to_owned();

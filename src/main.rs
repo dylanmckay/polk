@@ -40,11 +40,11 @@ use clap::{Arg, App, SubCommand};
 use std::path::PathBuf;
 use std::env;
 
-fn open_cache() -> Cache {
+fn open_cache() -> Result<Cache, Error> {
     let path = env::home_dir().expect("user does not have home directory").
         join(".dotty").join("cache");
 
-    Cache::at(path.to_owned()).unwrap()
+    Cache::at(path.to_owned())
 }
 
 /// Gets the username of the current user.
@@ -56,7 +56,7 @@ fn username() -> String {
 }
 
 fn dotty() -> Result<(), Error> {
-    let cache = open_cache();
+    let cache = open_cache()?;
     let mut user_cache = cache.user(username());
 
     let matches = App::new("Dotty")
@@ -84,7 +84,7 @@ fn dotty() -> Result<(), Error> {
                           .get_matches();
 
     let verbose = matches.is_present("verbose");
-    let mut term = term::stdout().unwrap();
+    let mut term = term::stdout().expect("could not open stdout for term library");
 
     match matches.subcommand() {
         ("", None) => {
@@ -93,7 +93,7 @@ fn dotty() -> Result<(), Error> {
         ("setup", Some(setup_matches)) => {
             // Gets a value for config if supplied by user, or defaults to "default.conf"
             let source_str = setup_matches.value_of("SOURCE").unwrap();
-            let source_spec: SourceSpec = source_str.parse().unwrap();
+            let source_spec: SourceSpec = source_str.parse()?;
 
             vlog!(verbose => "Getting dotfiles from {}", source_spec.description());
 
