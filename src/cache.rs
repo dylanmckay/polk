@@ -83,22 +83,18 @@ impl<'a> UserCache<'a> {
 
     /// Initializes cache for a user.
     pub fn setup(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
-        // Clear the directory because it may already exist.
-        // FIXME: we shoulnd't do this because initialisation may fail and we would
-        // want to keep existing configuration.
-        if self.dotfiles_path().exists() {
-            fs::remove_dir_all(&self.dotfiles_path()).chain_err(|| "could not remove old dotfiles cache directory")?;
-        }
-        fs::create_dir_all(&self.dotfiles_path()).chain_err(|| "could not create old dotfiles cache directory")?;
+        backup::path(self.dotfiles_path(), || {
+            fs::create_dir_all(&self.dotfiles_path()).chain_err(|| "could not create old dotfiles cache directory")?;
 
-        // Create the manifest file and save it to disk.
-        let manifest = UserManifest { source: source.clone() };
-        manifest.save(&self.manifest_path()).chain_err(|| "could not save user cache manifest")?;
+            // Create the manifest file and save it to disk.
+            let manifest = UserManifest { source: source.clone() };
+            manifest.save(&self.manifest_path()).chain_err(|| "could not save user cache manifest")?;
 
-        // Retrieve the backend because it will get built if it doesn't exist.
-        let (_, _backend) = self.manifest_backend()?;
+            // Retrieve the backend because it will get built if it doesn't exist.
+            let (_, _backend) = self.manifest_backend()?;
 
-        self.build_symlinks(verbose).chain_err(|| "could not build symlinks")
+            self.build_symlinks(verbose).chain_err(|| "could not build symlinks")
+        })
     }
 
     /// Updates all of the dotfiles.
@@ -207,6 +203,69 @@ impl UserManifest {
         let mut file = fs::File::create(path)?;
         file.write_all(manifest_toml.as_bytes())?;
         Ok(())
+    }
+}
+
+mod backup {
+    use {Error, ResultExt};
+    use std::path::Path;
+    use std::{fs, env, time};
+
+    /// Move a file to a temporary location and restore it
+    /// in the event of an error.
+    pub fn path<P,T,F>(path: P, f: F) -> Result<T, Error>
+        where P: AsRef<Path>, F: FnOnce() -> Result<T, Error> {
+        let path = path.as_ref();
+
+        if !path.exists() {
+            // Nothing to back up in that case.
+            return f();
+        }
+
+        let file_name = path.file_name().expect("cannot have transactions on paths with no file name").to_str().unwrap();
+        let temp_path = env::temp_dir().join(format!("{}-{}", file_name, random_token()));
+
+        // We don't need special error handling here because if we fail to backup,
+        // we won't even end up executing the function.
+        backup_path(path, &temp_path)?;
+
+        match f() {
+            Ok(result) => Ok(result),
+            // An error occurred, attempt to restore the path.
+            Err(e) => match restore_path(path, &temp_path) {
+                // Successfully restored the file, propagate error.
+                Ok(..) => Err(e),
+                // Failure during restoration, add more context and propagate up.
+                Err(f) => Err(f).chain_err(|| format!("could not restore backed up file '{}'", path.display())),
+            },
+        }
+    }
+
+    /// Backup a path.
+    fn backup_path(path: &Path, temp_path: &Path) -> Result<(), Error> {
+        fs::rename(path, &temp_path)?;
+        Ok(())
+    }
+
+    /// Restore a path.
+    fn restore_path(path: &Path, temp_path: &Path) -> Result<(), Error> {
+        // If somebody has put a file in our place, delete it.
+        if path.exists() {
+            if path.is_dir() {
+                fs::remove_dir_all(path)?;
+            } else {
+                fs::remove_file(path)?;
+            }
+        }
+
+        fs::rename(&temp_path, path)?;
+        Ok(())
+    }
+
+    /// Generates a random token text.
+    fn random_token() -> String {
+        let elapsed = time::SystemTime::now().elapsed().unwrap_or(time::Duration::from_millis(0));
+        (!(elapsed.subsec_nanos() as u32)).to_string()
     }
 }
 
