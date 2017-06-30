@@ -1,7 +1,6 @@
 use backend::Backend;
 
-use git2::{self, Repository, Direction, AutotagOption, BranchType};
-use git2::build::CheckoutBuilder;
+use git2::{self, Repository, Direction, AutotagOption};
 use std::path::Path;
 use std::io;
 
@@ -50,7 +49,7 @@ impl Backend for Git {
         let mut original_head = self.repo.head().unwrap();
         assert!(original_head.is_branch(), "HEAD is not a branch");
 
-        let branch_name = original_head.shorthand().unwrap().to_owned(); // TODO: Maybe use long version?
+        let branch_name = original_head.shorthand().unwrap().to_owned();
 
         let remote_name = self.repo.remotes().unwrap().iter().next().unwrap().unwrap().to_owned();
         let mut remote = self.repo.find_remote(&remote_name).unwrap();
@@ -64,12 +63,34 @@ impl Backend for Git {
         let remote_ref_name = format!("refs/remotes/{}/{}", remote_name, branch_name);
         let remote_ref = self.repo.find_reference(&remote_ref_name).unwrap();
         let current_head = original_head.set_target(remote_ref.target().unwrap(), "updating branch for new dotfiles").unwrap();
+        let original_oid = original_head.target().unwrap();
+        let current_oid = current_head.target().unwrap();
 
-        let current_oid = &current_head.target().unwrap().to_string()[0..7];
+        let current_oid_label = &current_oid.to_string()[0..7];
         if original_head == current_head {
-            ilog!("already up-to-date with {} at {}", branch_name, current_oid);
+            ilog!("already up-to-date with {} at {}", branch_name, current_oid_label);
         } else {
-            ilog!("updated `{}` to {}", branch_name, current_oid);
+            // Build a revwalk over all new commits.
+            let mut revwalk = self.repo.revwalk().unwrap();
+            revwalk.push(current_oid).unwrap();
+            revwalk.hide(original_oid).unwrap();
+
+            ilog!("");
+            ilog!("Commits");
+            ilog!("-------");
+
+            // Print a diff.
+            for oid in revwalk {
+                let oid = oid.unwrap();
+                let commit = self.repo.find_commit(oid).unwrap();
+                let oid_label = &oid.to_string()[..7];
+
+                ilog!("{} {}", oid_label, commit.message().unwrap().trim());
+            }
+
+            ilog!("");
+
+            ilog!("updated `{}` to {}", branch_name, current_oid_label);
         }
 
         Ok(())
