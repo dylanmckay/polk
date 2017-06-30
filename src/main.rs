@@ -15,7 +15,7 @@ extern crate error_chain;
 pub use self::cache::{Cache, UserCache};
 pub use self::source::{Source, SourceSpec};
 pub use self::feature::FeatureSet;
-pub use self::errors::{Error, ErrorKind};
+pub use self::errors::{Error, ErrorKind, ResultExt};
 
 #[macro_use]
 pub mod log;
@@ -97,7 +97,7 @@ fn dotty() -> Result<(), Error> {
 
             vlog!(verbose => "Getting dotfiles from {}", source_spec.description());
 
-            user_cache.initialize(&source_spec, verbose)?;
+            user_cache.setup(&source_spec, verbose)?;
         },
         ("update", _) => {
             user_cache.update(verbose)?;
@@ -125,7 +125,7 @@ fn main() {
     match dotty() {
         Ok(..) => (),
         Err(e) => {
-            fatal!("{}", e);
+            fatal_error!(e);
         },
     }
 }

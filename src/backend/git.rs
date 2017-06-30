@@ -1,4 +1,4 @@
-use Error;
+use {Error, ResultExt};
 use backend::Backend;
 
 use git2::{self, Repository, Direction, AutotagOption};
@@ -11,22 +11,15 @@ pub struct Git {
 
 impl Git {
     pub fn open(repo_path: &Path) -> Result<Git, Error> {
-        let repo = match Repository::open(repo_path) {
-            Ok(repo) => repo,
-            Err(e) => fatal!("failed to clone: {}", e),
-        };
+        let repo = Repository::open(repo_path).
+            chain_err(|| format!("could not open '{}'", repo_path.display()))?;
 
         Ok(Git { repo: repo })
     }
 
-    pub fn initialize(dest: &Path, source: &str) -> Result<Git, Error> {
+    pub fn setup(dest: &Path, source: &str) -> Result<Git, Error> {
         ilog!("cloning from Git repository at '{}' to '{}'", dest.display(), source);
-
-        let repo = match Repository::clone(source, dest) {
-            Ok(repo) => repo,
-            Err(e) => fatal!("failed to clone: {}", e),
-        };
-
+        let repo = Repository::clone(source, dest).chain_err(|| format!("could not clone '{}'", source))?;
         ilog!("successfully cloned Git repository");
 
         Ok(Git { repo: repo })
@@ -36,7 +29,7 @@ impl Git {
         if dest.join(".git").exists() {
             Git::open(dest)
         } else {
-            Git::initialize(dest, source)
+            Git::setup(dest, source)
         }
     }
 }

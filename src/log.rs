@@ -33,11 +33,38 @@ macro_rules! fatal {
 /// Prints out a fatal `Error` and an explanation message then
 /// terminates the process.
 macro_rules! fatal_error {
+    ($error:expr) => {
+        {
+            let error: $crate::Error = $error.into();
+            let errors: Vec<_> = error.iter().map(ToString::to_string).collect();
+
+            /// Print pretty error messages in release builds.
+            #[cfg(not(debug_assertions))]
+            {
+                fatal!("{}", error)
+            }
+
+            /// Print useful stacktrace in debug mode.
+            #[cfg(debug_assertions)]
+            {
+                eprintln!("error: {}", errors.join(" - "));
+                panic!("{}", error);
+            }
+        }
+    };
+
     ($error:expr, $message:expr) => {
         {
-            fatal!("{}: {}", $message, $error)
+            use $crate::ResultExt;
+
+            // We can only chain `Result`, not `Error`.
+            let error: Result<(), $crate::Error> = Err($error.into());
+            let error = error.chain_err(|| $message);
+            let error = error.err().unwrap();
+
+            fatal_error!(error);
         }
-    }
+    };
 }
 
 /// Write a generic log message to standard error.

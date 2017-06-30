@@ -1,4 +1,4 @@
-use {SourceSpec, Dotfile, FeatureSet, Error};
+use {SourceSpec, Dotfile, FeatureSet, Error, ResultExt};
 use backend::{self, Backend};
 use symlink;
 
@@ -82,20 +82,23 @@ impl<'a> UserCache<'a> {
     }
 
     /// Initializes cache for a user.
-    pub fn initialize(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
+    pub fn setup(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
         // Clear the directory because it may already exist.
         // FIXME: we shoulnd't do this because initialisation may fail and we would
         // want to keep existing configuration.
         if self.dotfiles_path().exists() {
-            fs::remove_dir_all(&self.dotfiles_path())?;
-            fs::create_dir_all(&self.dotfiles_path())?;
+            fs::remove_dir_all(&self.dotfiles_path()).chain_err(|| "could not remove old dotfiles cache directory")?;
         }
+        fs::create_dir_all(&self.dotfiles_path()).chain_err(|| "could not create old dotfiles cache directory")?;
 
         // Create the manifest file and save it to disk.
         let manifest = UserManifest { source: source.clone() };
-        manifest.save(&self.manifest_path())?;
+        manifest.save(&self.manifest_path()).chain_err(|| "could not save user cache manifest")?;
 
-        self.build_symlinks(verbose)
+        // Retrieve the backend because it will get built if it doesn't exist.
+        let (_, _backend) = self.manifest_backend()?;
+
+        self.build_symlinks(verbose).chain_err(|| "could not build symlinks")
     }
 
     /// Updates all of the dotfiles.
@@ -158,7 +161,7 @@ impl<'a> UserCache<'a> {
 
     /// Gets the manifest.
     pub fn manifest(&self) -> Result<UserManifest, Error> {
-        UserManifest::load(&self.manifest_path())
+        UserManifest::load(&self.manifest_path()).chain_err(|| "reading user manifest")
     }
 
     /// Gets the manifest and backend.
