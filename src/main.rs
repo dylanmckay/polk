@@ -158,7 +158,8 @@ fn polk() -> Result<(), Error> {
             let user_cache = cache.user(username);
             let config = shell::Config::default();
 
-            let _shell = shell::Shell::create(&user_cache, config);
+            let shell = shell::Shell::create(&user_cache, config)?;
+            shell.exec()?;
         },
         ("forget", _) => {
             cache.forget(verbose)?;
