@@ -12,6 +12,8 @@ cargo install polk
 
 # Examples
 
+## General usage
+
 ```bash
 # Grab and symlink dotfiles from my GitHub account.
 # (assumes repository named 'dotfiles')
@@ -19,19 +21,35 @@ polk setup github:dylanmckay
 
 # Grab and symlink dotfiles from another repository.
 polk setup github:dylanmckay/otherdotfiles
+```
+
+## Multiple users/dotfile repositories
+
+```bash
+# Set up dotfiles for the default user (with what your computer username is).
+# Also symlink them to ~/
+polk setup github:dylanmckay
 
 # Download dotfiles to a local cache folder but don't create symlinks
-polk grab github:dylanmckay
+polk grab --user bob github:bob67
+
+# Open a shell to a custom home folder with dotfiles symlinked.
+polk shell --user bob
 
 # Create symlinks to the currently grabbed dotfiles
-polk link
+# Replace symlinks in ~/ with what bob has
+polk link --user bob
 
 # Update the dotfiles (via git)
 polk update
 
 # Remove all symlinks created by polk.
 polk unlink
+```
 
+## Utilities
+
+```
 # Remove all symlinks and cached dotfiles/repositories (~/.polk)
 polk forget
 
