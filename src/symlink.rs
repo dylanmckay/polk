@@ -1,6 +1,6 @@
 use {Dotfile, Error};
 
-use std::path::{PathBuf, Path};
+use std::path::PathBuf;
 use std::{fs, env};
 use std::os::unix;
 
