@@ -59,7 +59,8 @@ README.md
 
 Here is a table of how dotfiles within a repository map to symlinks in `$HOME`.
 
-|| File                         || Symlink ||
+| File                          | Symlink                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
 |  `.bashrc`                    |  `~/.bashrc -> ~/<dotfiles repository path>/.bashrc`       |
 | `.tmux.conf`                  |  `~/.tmux.conf -> ~/<dotfiles repository path>/.tmux.conf` |
 | `.config/awesome/config.lua`  |  `~/.config/awesome/config.lua -> ~/<dotfiles repository path>/.config/awesome/config.lua` |
