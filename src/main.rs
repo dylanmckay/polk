@@ -42,7 +42,7 @@ use std::env;
 
 fn open_cache() -> Result<Cache, Error> {
     let path = env::home_dir().expect("user does not have home directory").
-        join(".dotty");
+        join(".polk");
 
     Cache::at(path.to_owned())
 }
@@ -55,10 +55,10 @@ fn username() -> String {
     }
 }
 
-fn dotty() -> Result<(), Error> {
+fn polk() -> Result<(), Error> {
     let cache = open_cache()?;
 
-    let matches = App::new("Dotty")
+    let matches = App::new("Polk")
                           .version(env!("CARGO_PKG_VERSION"))
                           .author(env!("CARGO_PKG_AUTHORS"))
                           .about(env!("CARGO_PKG_DESCRIPTION"))
@@ -85,7 +85,7 @@ fn dotty() -> Result<(), Error> {
                           .subcommand(SubCommand::with_name("unlink")
                                       .about("Deletes all symbolic links"))
                           .subcommand(SubCommand::with_name("forget")
-                                      .about("Deletes all symbolic links and Dotty cache files"))
+                                      .about("Deletes all symbolic links and cached dotfiles files"))
                           .subcommand(SubCommand::with_name("info")
                                       .about("List information"))
                           .get_matches();
@@ -145,7 +145,7 @@ fn dotty() -> Result<(), Error> {
 }
 
 fn main() {
-    match dotty() {
+    match polk() {
         Ok(..) => (),
         Err(e) => {
             fatal_error!(e);

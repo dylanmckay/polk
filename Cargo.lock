@@ -1,5 +1,5 @@
 [root]
-name = "dotty"
+name = "polk"
 version = "0.1.0"
 dependencies = [
  "clap 2.25.0 (registry+https://github.com/rust-lang/crates.io-index)",
