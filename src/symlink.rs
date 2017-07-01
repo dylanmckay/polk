@@ -1,7 +1,7 @@
 use {Dotfile, Error};
 
 use std::path::{PathBuf, Path};
-use std::fs;
+use std::{fs, env};
 use std::os::unix;
 
 /// Configuration for symlinking.
@@ -84,8 +84,7 @@ impl Default for Config
 {
     fn default() -> Config {
         Config {
-            // home_path: env::home_dir().expect("user has no home directory"),
-            home_path: Path::new("/tmp/dotfiles").to_owned(),
+            home_path: env::home_dir().expect("user has no home directory"),
         }
     }
 }
