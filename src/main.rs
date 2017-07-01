@@ -48,10 +48,29 @@ fn open_cache() -> Result<Cache, Error> {
 }
 
 /// Gets the username of the current user.
-fn username() -> String {
+fn system_username() -> String {
     match env::var("USER") {
         Ok(username) => username,
         Err(e) => fatal_error!(e, "could not get username"),
+    }
+}
+
+mod arg {
+    use clap::Arg;
+
+    pub fn dotfile_source<'a,'b>() -> Arg<'a,'b> {
+        Arg::with_name("SOURCE")
+            .help("Sets the source of the dotfiles")
+            .required(true)
+            .index(1)
+    }
+
+    pub fn username<'a,'b>() -> Arg<'a,'b> {
+        Arg::with_name("user")
+            .short("u")
+            .long("user")
+            .value_name("USERNAME")
+            .help("The username associated with the dotfiles\nDefaults to your computer username")
     }
 }
 
@@ -67,20 +86,18 @@ fn polk() -> Result<(), Error> {
                                .long("verbose")
                                .help("Enables verbose output"))
                           .subcommand(SubCommand::with_name("grab")
-                                      .about("Downloads dotfiles but does not create symlinks to them")
-                                      .arg(Arg::with_name("SOURCE")
-                                           .help("Sets the source of the dotfiles")
-                                           .required(true)
-                                           .index(1)))
+                                      .arg(arg::username())
+                                      .arg(arg::dotfile_source())
+                                      .about("Downloads dotfiles but does not create symlinks to them"))
                           .subcommand(SubCommand::with_name("setup")
-                                      .about("Fetches dotfiles and creates symlinks to them")
-                                      .arg(Arg::with_name("SOURCE")
-                                           .help("Sets the source of the dotfiles")
-                                           .required(true)
-                                           .index(1)))
+                                      .arg(arg::username())
+                                      .arg(arg::dotfile_source())
+                                      .about("Fetches dotfiles and creates symlinks to them"))
                           .subcommand(SubCommand::with_name("update")
+                                      .arg(arg::username())
                                       .about("Updates dotfiles via the internet"))
                           .subcommand(SubCommand::with_name("link")
+                                      .arg(arg::username())
                                       .about("Creates symbolic links to dotfiles"))
                           .subcommand(SubCommand::with_name("unlink")
                                       .about("Deletes all symbolic links"))
@@ -93,13 +110,19 @@ fn polk() -> Result<(), Error> {
     let verbose = matches.is_present("verbose");
     let mut term = term::stdout().expect("could not open stdout for term library");
 
+    let username = if let Some(cmd_matches) = matches.subcommand().1 {
+        cmd_matches.value_of("user").map(ToOwned::to_owned).unwrap_or_else(|| system_username())
+    } else {
+        system_username()
+    };
+
     match matches.subcommand() {
         ("", None) => {
             fatal!("please enter a subcommand");
         },
         ("grab", Some(cmd_matches)) |
         ("setup", Some(cmd_matches)) => {
-            let mut user_cache = cache.user(username());
+            let mut user_cache = cache.user(username);
 
             let subcommand = matches.subcommand().0;
 
@@ -116,22 +139,22 @@ fn polk() -> Result<(), Error> {
             }
         },
         ("update", _) => {
-            let mut user_cache = cache.user(username());
+            let mut user_cache = cache.user(username);
             user_cache.update(verbose)?;
         },
         ("link", _) => {
-            let mut user_cache = cache.user(username());
+            let mut user_cache = cache.user(username);
             user_cache.link(verbose)?;
         },
         ("unlink", _) => {
-            let mut user_cache = cache.user(username());
+            let mut user_cache = cache.user(username);
             user_cache.unlink(verbose)?;
         },
         ("forget", _) => {
             cache.forget(verbose)?;
         },
         ("info", _) => {
-            let user_cache = cache.user(username());
+            let user_cache = cache.user(username);
             let features = feature::FeatureSet::current_system();
 
             info::print_features(&features)?;
