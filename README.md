@@ -49,7 +49,7 @@ polk unlink
 
 ## Utilities
 
-```
+```bash
 # Remove all symlinks and cached dotfiles/repositories (~/.polk)
 polk forget
 
