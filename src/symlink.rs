@@ -63,10 +63,6 @@ pub fn destroy(dotfile: &Dotfile, config: &Config) -> Result<(), Error> {
         Err(ref e) if e.kind() == NotFound => Ok(()),
         Err(e) => Err(e.into()),
     }
-
-    // TODO: We could clean up any subdirectories which only
-    // contained symlinks and are now empty. Not very useful in
-    // real life use and could be too aggressive.
 }
 
 /// Checks if the symlink for a dotfile exists.
