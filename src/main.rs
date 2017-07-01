@@ -24,7 +24,7 @@ pub mod source;
 pub mod symlink;
 pub mod feature;
 pub mod backend;
-pub mod shell;
+pub mod tools;
 pub mod errors;
 
 /// A single dotfile.
@@ -156,9 +156,9 @@ fn polk() -> Result<(), Error> {
         },
         ("shell", _) => {
             let mut user_cache = cache.user(username);
-            let config = shell::Config::default();
+            let config = tools::shell::Config::default();
 
-            let shell = shell::Shell::create(&mut user_cache, config)?;
+            let shell = tools::shell::Shell::create(&mut user_cache, config)?;
             shell.exec()?;
         },
         ("forget", _) => {
