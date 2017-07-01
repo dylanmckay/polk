@@ -145,8 +145,18 @@ impl<'a> UserCache<'a> {
         })
     }
 
+    /// Checks whether we have grabbed dotfiles for the user.
+    pub fn is_grabbed(&self) -> bool {
+        // We always create a manifest file when grabbing up.
+        self.manifest_path().exists()
+    }
+
     /// Updates all of the dotfiles.
     pub fn update(&mut self, verbose: bool) -> Result<(), Error> {
+        if !self.is_grabbed() {
+            fatal!("cannot update, there are no dotfiles grabbed for this user");
+        }
+
         let (manifest, mut backend) = self.open_manifest_backend()?;
 
         ilog!("updating dotfiles from {}", manifest.source.description());
