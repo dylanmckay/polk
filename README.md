@@ -26,11 +26,14 @@ dotty grab github:dylanmckay
 # Create symlinks to the currently grabbed dotfiles
 dotty link
 
-# Update the dotfiles.
+# Update the dotfiles (via git)
 dotty update
 
 # Remove all symlinks created by dotty.
 dotty unlink
+
+# Remove all symlinks and cached dotfiles/repositories (~/.dotty)
+dotty forget
 
 # Print a bunch of information
 dotty info
