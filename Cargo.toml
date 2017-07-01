@@ -3,6 +3,16 @@ name = "polk"
 version = "0.1.0"
 authors = ["Dylan McKay <me@dylanmckay.io>"]
 
+description = "Dotfile manager and symlinker"
+
+documentation = "https://docs.rs/polk"
+repository = "https://github.com/dylanmckay/polk"
+
+readme = "README.md"
+categories = ["config", "development-tools"]
+
+license = "MIT"
+
 [dependencies]
 clap = "2.25"
 git2 = "0.6"
@@ -14,3 +24,4 @@ toml = "0.4"
 serde = "1.0"
 serde_derive = "1.0"
 error-chain = "0.10"
+
