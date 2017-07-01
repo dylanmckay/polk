@@ -42,7 +42,7 @@ use std::env;
 
 fn open_cache() -> Result<Cache, Error> {
     let path = env::home_dir().expect("user does not have home directory").
-        join(".dotty").join("cache");
+        join(".dotty");
 
     Cache::at(path.to_owned())
 }
@@ -57,7 +57,6 @@ fn username() -> String {
 
 fn dotty() -> Result<(), Error> {
     let cache = open_cache()?;
-    let mut user_cache = cache.user(username());
 
     let matches = App::new("Dotty")
                           .version(env!("CARGO_PKG_VERSION"))
@@ -85,6 +84,8 @@ fn dotty() -> Result<(), Error> {
                                       .about("Creates symbolic links to dotfiles"))
                           .subcommand(SubCommand::with_name("unlink")
                                       .about("Deletes all symbolic links"))
+                          .subcommand(SubCommand::with_name("forget")
+                                      .about("Deletes all symbolic links and Dotty cache files"))
                           .subcommand(SubCommand::with_name("info")
                                       .about("List information"))
                           .get_matches();
@@ -98,6 +99,8 @@ fn dotty() -> Result<(), Error> {
         },
         ("grab", Some(cmd_matches)) |
         ("setup", Some(cmd_matches)) => {
+            let mut user_cache = cache.user(username());
+
             let subcommand = matches.subcommand().0;
 
             // Gets a value for config if supplied by user, or defaults to "default.conf"
@@ -113,15 +116,22 @@ fn dotty() -> Result<(), Error> {
             }
         },
         ("update", _) => {
+            let mut user_cache = cache.user(username());
             user_cache.update(verbose)?;
         },
         ("link", _) => {
+            let mut user_cache = cache.user(username());
             user_cache.link(verbose)?;
         },
         ("unlink", _) => {
+            let mut user_cache = cache.user(username());
             user_cache.unlink(verbose)?;
         },
+        ("forget", _) => {
+            cache.forget(verbose)?;
+        },
         ("info", _) => {
+            let user_cache = cache.user(username());
             let features = feature::FeatureSet::current_system();
 
             info::print_features(&features)?;

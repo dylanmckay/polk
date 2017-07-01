@@ -61,15 +61,52 @@ impl Cache {
         Ok(Cache { path: path })
     }
 
+    /// Clears all symlinks and deletes the cache.
+    pub fn forget(self, _verbose: bool) -> Result<(), Error> {
+        for mut user_cache in self.user_caches()? {
+            // Don't be verbose because there will be many false positives.
+            user_cache.unlink(true).chain_err(|| "could not forget symlinks")?;
+        }
+
+        if self.path.exists() {
+            fs::remove_dir_all(&self.path).chain_err(|| "could not remote cache")?;
+        }
+
+        Ok(())
+    }
+
+    /// Gets all of the dotfile caches.
+    pub fn user_caches(&self) -> Result<Vec<UserCache>, Error> {
+        let mut usernames = Vec::new();
+
+        if !self.users_path().exists() {
+            return Ok(Vec::new());
+        }
+
+        for entry in fs::read_dir(&self.users_path())? {
+            let path = entry?.path();
+
+            if path.is_dir() {
+                let file_name = path.file_name().unwrap().to_str().unwrap();
+                usernames.push(file_name.to_owned());
+            }
+        }
+
+        Ok(usernames.into_iter().map(|name| self.user(name)).collect())
+    }
+
     /// Gets a user-specifc cache.
     pub fn user<S>(&self, username: S) -> UserCache where S: Into<String> {
         UserCache { cache: self, username: username.into() }
     }
+
+    /// Gets the `users` directory path.
+    pub fn users_path(&self) -> PathBuf { self.path.join("users") }
 }
 
 impl<'a> UserCache<'a> {
     /// The path to the root of the user cache.
-    pub fn base_path(&self) -> PathBuf { self.cache.path.join("users").join(&self.username) }
+    pub fn base_path(&self) -> PathBuf { self.cache.users_path().join(&self.username) }
 
     /// Gets the path to the manifest file.
     fn manifest_path(&self) -> PathBuf {
@@ -137,6 +174,10 @@ impl<'a> UserCache<'a> {
     /// Gets all of the dotfiles in the cache.
     pub fn dotfiles(&self) -> Result<Vec<Dotfile>, Error> {
         let mut dotfiles = Vec::new();
+
+        if !self.dotfiles_path().exists() {
+            return Ok(Vec::new());
+        }
 
         for entry in WalkDir::new(self.dotfiles_path()) {
             let entry = entry?;
