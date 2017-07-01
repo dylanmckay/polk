@@ -32,11 +32,20 @@ impl Git {
             Git::setup(dest, source)
         }
     }
+
+    fn is_worktree_dirty(&self) -> Result<bool, Error> {
+        Ok(self.repo.statuses(None)?.
+            iter().
+            any(|entry| !entry.status().is_empty()))
+    }
 }
 
 impl Backend for Git {
     fn update(&mut self, _verbose: bool) -> Result<(), Error> {
-        // FIXME: complain when worktree is dirty
+        if self.is_worktree_dirty()? {
+            fatal!("dotfiles repository needs to have a clean worktree ({})",
+                   self.repo.path().display());
+        }
 
         self::ensure_head_is_named_reference(&mut self.repo)?;
         let mut original_head = self.repo.head()?;
