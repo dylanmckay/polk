@@ -4,9 +4,15 @@ use std::path::{PathBuf, Path};
 use std::fs;
 use std::os::unix;
 
+/// Configuration for symlinking.
+#[derive(Debug)]
+pub struct Config {
+    pub home_path: PathBuf,
+}
+
 /// Creates a symlink to a dotfile.
-pub fn build(dotfile: &Dotfile) -> Result<(), Error> {
-    let dest_path = self::path(dotfile);
+pub fn build(dotfile: &Dotfile, config: &Config) -> Result<(), Error> {
+    let dest_path = self::path(dotfile, config);
 
     if dest_path.exists() {
         if dest_path.is_dir() {
@@ -46,10 +52,10 @@ pub fn build(dotfile: &Dotfile) -> Result<(), Error> {
 }
 
 /// Destroys the symlink to a dotfile.
-pub fn destroy(dotfile: &Dotfile) -> Result<(), Error> {
+pub fn destroy(dotfile: &Dotfile, config: &Config) -> Result<(), Error> {
     use std::io::ErrorKind::NotFound;
 
-    let dest_path = self::path(dotfile);
+    let dest_path = self::path(dotfile, config);
 
     match fs::remove_file(&dest_path) {
         Ok(..) => Ok(()),
@@ -64,8 +70,8 @@ pub fn destroy(dotfile: &Dotfile) -> Result<(), Error> {
 }
 
 /// Checks if the symlink for a dotfile exists.
-pub fn exists(dotfile: &Dotfile) -> Result<bool, Error> {
-    let symlink_path = self::path(dotfile);
+pub fn exists(dotfile: &Dotfile, config: &Config) -> Result<bool, Error> {
+    let symlink_path = self::path(dotfile, config);
 
     if !symlink_path.exists() { return Ok(false); }
 
@@ -74,9 +80,17 @@ pub fn exists(dotfile: &Dotfile) -> Result<bool, Error> {
 }
 
 /// Gets the path where where the dotfile symlink should live.
-pub fn path(dotfile: &Dotfile) -> PathBuf {
-    // let home_dir = env::home_dir().expect("user has no home directory");
-    let home_dir = Path::new("/tmp/dotfiles");
-    home_dir.join(&dotfile.relative_path)
+pub fn path(dotfile: &Dotfile, config: &Config) -> PathBuf {
+    config.home_path.join(&dotfile.relative_path)
+}
+
+impl Default for Config
+{
+    fn default() -> Config {
+        Config {
+            // home_path: env::home_dir().expect("user has no home directory"),
+            home_path: Path::new("/tmp/dotfiles").to_owned(),
+        }
+    }
 }
 

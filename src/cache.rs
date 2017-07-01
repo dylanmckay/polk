@@ -29,7 +29,7 @@ pub struct Cache {
 /// Cache for a particular user.
 pub struct UserCache<'a> {
     cache: &'a Cache,
-    username: String,
+    pub username: String,
 }
 
 /// A manifest file for a user cache.
@@ -109,13 +109,18 @@ impl<'a> UserCache<'a> {
     pub fn base_path(&self) -> PathBuf { self.cache.users_path().join(&self.username) }
 
     /// Gets the path to the manifest file.
-    fn manifest_path(&self) -> PathBuf {
+    pub fn manifest_path(&self) -> PathBuf {
         self.base_path().join("manifest.toml")
     }
 
     /// The path to the dotfiles subdirectory inside the cache.
-    fn dotfiles_path(&self) -> PathBuf {
+    pub fn dotfiles_path(&self) -> PathBuf {
         self.base_path().join("dotfiles")
+    }
+
+    /// The home directory for custom shells.
+    pub fn home_path(&self) -> PathBuf {
+        self.base_path().join("home")
     }
 
     /// Fetches dotfiles *and* creates symlinks.
@@ -170,11 +175,14 @@ impl<'a> UserCache<'a> {
 
     /// Deletes all symbolic links.
     pub fn unlink(&mut self, verbose: bool) -> Result<(), Error> {
-        for dotfile in self.dotfiles()? {
-            if symlink::exists(&dotfile)? {
-                vlog!(verbose => "deleting {}", symlink::path(&dotfile).display());
+        let symlink_config = symlink::Config::default();
 
-                symlink::destroy(&dotfile)?;
+        for dotfile in self.dotfiles()? {
+            if symlink::exists(&dotfile, &symlink_config)? {
+                vlog!(verbose => "deleting {}",
+                      symlink::path(&dotfile, &symlink_config).display());
+
+                symlink::destroy(&dotfile, &symlink_config)?;
             }
         }
 
@@ -232,11 +240,12 @@ impl<'a> UserCache<'a> {
     fn build_symlinks(&mut self, verbose: bool) -> Result<(), Error> {
         let features = FeatureSet::current_system();
 
+        let symlink_config = symlink::Config::default();
         for dotfile in self.dotfiles()? {
             if features.supports(&dotfile) {
-                symlink::build(&dotfile)?;
+                symlink::build(&dotfile, &symlink_config)?;
 
-                let symlink_path = symlink::path(&dotfile);
+                let symlink_path = symlink::path(&dotfile, &symlink_config);
                 vlog!(verbose => "created {} -> {}", dotfile.full_path.display(), symlink_path.display());
             } else {
                 ilog!("ignoring '{}' because is is not supported by this machine",

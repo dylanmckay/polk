@@ -24,6 +24,7 @@ pub mod source;
 pub mod symlink;
 pub mod feature;
 pub mod backend;
+pub mod shell;
 pub mod errors;
 
 /// A single dotfile.
@@ -101,6 +102,9 @@ fn polk() -> Result<(), Error> {
                                       .about("Creates symbolic links to dotfiles"))
                           .subcommand(SubCommand::with_name("unlink")
                                       .about("Deletes all symbolic links"))
+                          .subcommand(SubCommand::with_name("shell")
+                                      .arg(arg::username())
+                                      .about("Open up a shell with a temporary $HOME and the given users dotfiles"))
                           .subcommand(SubCommand::with_name("forget")
                                       .about("Deletes all symbolic links and cached dotfiles files"))
                           .subcommand(SubCommand::with_name("info")
@@ -149,6 +153,13 @@ fn polk() -> Result<(), Error> {
         ("unlink", _) => {
             let mut user_cache = cache.user(username);
             user_cache.unlink(verbose)?;
+        },
+        ("shell", _) => {
+            let user_cache = cache.user(username);
+            let config = shell::Config::default();
+
+            let shell = shell::Shell::create(&user_cache, config)?;
+            shell.exec()?;
         },
         ("forget", _) => {
             cache.forget(verbose)?;
@@ -217,10 +228,11 @@ mod info {
 
         let mut dotfiles: Vec<_> = dotfiles.into_iter().collect();
         dotfiles.sort_by_key(|d| d.relative_path.clone());
+        let symlink_config = symlink::Config::default();
 
         for dotfile in dotfiles {
-            let symlink_path = symlink::path(&dotfile);
-            let symlink_exists = symlink::exists(&dotfile)?;
+            let symlink_path = symlink::path(&dotfile, &symlink_config);
+            let symlink_exists = symlink::exists(&dotfile, &symlink_config)?;
             let required_features: Vec<_> = feature::required_features(&dotfile).into_iter().collect();
 
             let bullet = if symlink_exists {
