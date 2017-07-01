@@ -1,4 +1,4 @@
-# dotty
+# polk
 
 Dotfile manager.
 
@@ -7,7 +7,7 @@ Dotfile manager.
 ## With Cargo
 
 ```bash
-cargo install dotty
+cargo install polk
 ```
 
 # Examples
@@ -15,28 +15,28 @@ cargo install dotty
 ```bash
 # Grab and symlink dotfiles from my GitHub account.
 # (assumes repository named 'dotfiles')
-dotty setup github:dylanmckay
+polk setup github:dylanmckay
 
 # Grab and symlink dotfiles from another repository.
-dotty setup github:dylanmckay/otherdotfiles
+polk setup github:dylanmckay/otherdotfiles
 
 # Download dotfiles to a local cache folder but don't create symlinks
-dotty grab github:dylanmckay
+polk grab github:dylanmckay
 
 # Create symlinks to the currently grabbed dotfiles
-dotty link
+polk link
 
 # Update the dotfiles (via git)
-dotty update
+polk update
 
-# Remove all symlinks created by dotty.
-dotty unlink
+# Remove all symlinks created by polk.
+polk unlink
 
-# Remove all symlinks and cached dotfiles/repositories (~/.dotty)
-dotty forget
+# Remove all symlinks and cached dotfiles/repositories (~/.polk)
+polk forget
 
 # Print a bunch of information
-dotty info
+polk info
 ```
 
 # Your dotfiles repository
