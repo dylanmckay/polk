@@ -155,10 +155,10 @@ fn polk() -> Result<(), Error> {
             user_cache.unlink(verbose)?;
         },
         ("shell", _) => {
-            let user_cache = cache.user(username);
+            let mut user_cache = cache.user(username);
             let config = shell::Config::default();
 
-            let shell = shell::Shell::create(&user_cache, config)?;
+            let shell = shell::Shell::create(&mut user_cache, config)?;
             shell.exec()?;
         },
         ("forget", _) => {

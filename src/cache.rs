@@ -127,7 +127,8 @@ impl<'a> UserCache<'a> {
     pub fn setup(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
         self.grab(source, verbose)?;
 
-        self.build_symlinks(verbose).chain_err(|| "could not build symlinks")
+        self.build_symlinks(&symlink::Config::default(), verbose).
+            chain_err(|| "could not build symlinks")
     }
 
     /// Downloadu dotfiles but does not create symlinks.
@@ -170,7 +171,7 @@ impl<'a> UserCache<'a> {
 
     /// Rebuilds symbolic links for the user.
     pub fn link(&mut self, verbose: bool) -> Result<(), Error> {
-        self.build_symlinks(verbose)
+        self.build_symlinks(&symlink::Config::default(), verbose)
     }
 
     /// Deletes all symbolic links.
@@ -237,10 +238,11 @@ impl<'a> UserCache<'a> {
     }
 
     /// Creates all symlinks.
-    fn build_symlinks(&mut self, verbose: bool) -> Result<(), Error> {
+    pub fn build_symlinks(&mut self,
+                          symlink_config: &symlink::Config,
+                          verbose: bool) -> Result<(), Error> {
         let features = FeatureSet::current_system();
 
-        let symlink_config = symlink::Config::default();
         for dotfile in self.dotfiles()? {
             if features.supports(&dotfile) {
                 symlink::build(&dotfile, &symlink_config)?;

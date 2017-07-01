@@ -13,14 +13,14 @@ pub struct Config {
 /// A shell.
 pub struct Shell<'a> {
     /// The user's cache.
-    user_cache: &'a UserCache<'a>,
+    user_cache: &'a mut UserCache<'a>,
     /// Shell configuration.
     config: Config,
 }
 
 impl<'a> Shell<'a> {
     /// Creates a new shell for the user.
-    pub fn create(user_cache: &'a UserCache, config: Config) -> Result<Self, Error> {
+    pub fn create(user_cache: &'a mut UserCache<'a>, config: Config) -> Result<Self, Error> {
         let home_path = user_cache.home_path();
         if !home_path.exists() {
             fs::create_dir_all(&home_path)?;
@@ -50,19 +50,12 @@ impl<'a> Shell<'a> {
 
     /// Build all of the symlinks for the custom home directory.
     fn build_symlinks(&mut self) -> Result<(), Error> {
-        let symlink_config = symlink::Config {
-            home_path: self.user_cache.home_path(),
-        };
+        let verbose = false;
+        let home_path = self.user_cache.home_path();
 
-        for dotfile in self.user_cache.dotfiles()? {
-            // FIXME: We also need to check if the dotfile is supported.
-            // Currently we symlink all dotfiles.
-            if !symlink::exists(&dotfile, &symlink_config)? {
-                symlink::build(&dotfile, &symlink_config)?;
-            }
-        }
-
-        Ok(())
+        self.user_cache.build_symlinks(&symlink::Config {
+            home_path: home_path,
+        }, verbose)
     }
 }
 
