@@ -82,6 +82,22 @@ impl FeatureSet {
         self.enabled_features.is_superset(&required_features)
     }
 
+    /// Substitutes all features in a dotfile's relative path with
+    /// the feature names.
+    ///
+    /// For example, `.tmux.linux.conf` would get resolved to `.tmux.os.conf`.
+    pub fn substitute_enabled_feature_names(&self, dotfile: &mut Dotfile) {
+        let mut file_name = dotfile.relative_path.file_name().unwrap().to_str().unwrap().to_owned();
+
+        for feature_value in self.enabled_features.iter() {
+            let feature_name = self::feature_name(feature_value);
+            println!("s/{}/{}", feature_value, feature_name);
+            file_name = file_name.replace(feature_value, feature_name);
+        }
+
+        dotfile.relative_path = dotfile.relative_path.with_file_name(file_name);
+    }
+
     /// Gets a list of all disabled features.
     pub fn disabled(&self) -> Vec<&'static str> {
         ALL_FEATURES.iter().flat_map(|fs| fs.iter()).cloned().filter(|feature| {
@@ -105,6 +121,16 @@ pub fn required_features(dotfile: &Dotfile) -> HashSet<&'static str> {
     }).collect()
 }
 
+/// Gets the name of a feature given its value
+/// For example, `.tmux.linux.conf` -> `.tmux.os.conf`.
+fn feature_name(value: &str) -> &'static str {
+    if OS_NAMES.iter().any(|&o| o == value) { return "os" };
+    if FAMILIES.iter().any(|&o| o == value) { return "family" };
+    if ARCH_NAMES.iter().any(|&o| o == value) { return "arch" };
+
+    panic!("unknown feature: '{}'", value);
+}
+
 /// Panics if a feature name isn't known to this module.
 fn validate_feature(feature: &'static str) {
     for feature_set in ALL_FEATURES.iter() {
@@ -114,5 +140,37 @@ fn validate_feature(feature: &'static str) {
     }
 
     panic!("feature '{}' does not exist in the global feature set", feature);
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::path::Path;
+
+    static ENABLED_FEATURES: &'static [&'static str] = &["linux", "unix", "x86"];
+
+    fn feature_set(features: &'static [&'static str]) -> FeatureSet {
+        FeatureSet::new(features.into_iter().cloned().collect())
+    }
+
+    fn substitute(relative_path: &'static str) -> String {
+        let feature_set = feature_set(ENABLED_FEATURES);
+
+        let mut dotfile = Dotfile {
+            full_path: Path::new("unused").to_owned(),
+            relative_path: Path::new(relative_path).to_owned(),
+        };
+        feature_set.substitute_enabled_feature_names(&mut dotfile);
+
+        dotfile.relative_path.to_str().unwrap().to_owned()
+    }
+
+    #[test]
+    fn substitute_enabled_features_works() {
+        assert_eq!(substitute("foo.bar"), "foo.bar");
+        assert_eq!(substitute(".tmux.linux.conf"), ".tmux.os.conf");
+        assert_eq!(substitute(".tmux.linux.x86.conf"), ".tmux.os.arch.conf");
+        assert_eq!(substitute(".tmux.linux.unix.x86.conf"), ".tmux.os.family.arch.conf");
+    }
 }
 
