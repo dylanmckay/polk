@@ -235,8 +235,22 @@ impl<'a> UserCache<'a> {
                 }
             });
             let file_blacklisted = DOTFILE_FILE_BLACKLIST.iter().any(|&bl| file_name == bl);
+            let mut is_submodule = false;
+            let mut current_path = Some(entry.path().to_owned());
 
-            if !folder_blacklisted && !file_blacklisted {
+            while let Some(path) = current_path {
+                // Stop looking once we hit the top level.
+                if self.dotfiles_path() == path { break; }
+
+                if path.join(".git").exists() {
+                    is_submodule = true;
+                    break;
+                }
+
+                current_path = path.parent().map(ToOwned::to_owned);
+            }
+
+            if !folder_blacklisted && !file_blacklisted && !is_submodule {
                 dotfiles.push(Dotfile {
                     full_path: entry.path().to_owned(),
                     relative_path: entry.path().strip_prefix(&self.dotfiles_path()).unwrap().to_owned(),
