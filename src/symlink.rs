@@ -14,7 +14,7 @@ pub struct Config {
 /// Creates a symlink to a dotfile.
 pub fn build(dotfile: &Dotfile, config: &Config) -> Result<(), Error> {
     let dest_path = self::path(dotfile, config);
-    println!("\nbuilding dotifle: {}\n", dest_path.display());
+    println!("building dotfile: {}", dest_path.display());
 
     if dest_path.exists() {
         if dest_path.is_dir() {
@@ -58,7 +58,7 @@ pub fn destroy(dotfile: &Dotfile, config: &Config) -> Result<(), Error> {
     use std::io::ErrorKind::NotFound;
 
     let dest_path = self::path(dotfile, config);
-    println!("\ndestroying dotifle: {}\n", dest_path.display());
+    println!("destroying dotfile: {}", dest_path.display());
 
     match fs::remove_file(&dest_path) {
         Ok(..) => Ok(()),

@@ -104,6 +104,8 @@ fn polk() -> Result<(), Error> {
                                       .about("Creates symbolic links to dotfiles"))
                           .subcommand(SubCommand::with_name("unlink")
                                       .about("Deletes all symbolic links"))
+                          .subcommand(SubCommand::with_name("relink")
+                                      .about("Recreates all symbolic links"))
                           .subcommand(SubCommand::with_name("shell")
                                       .arg(arg::username())
                                       .about("Open up a shell with a temporary $HOME and the given users dotfiles"))
@@ -155,6 +157,11 @@ fn polk() -> Result<(), Error> {
         ("unlink", _) => {
             let mut user_cache = cache.user(username);
             user_cache.unlink(verbose)?;
+        },
+        ("relink", _) => {
+            let mut user_cache = cache.user(username);
+            user_cache.unlink(verbose)?;
+            user_cache.link(verbose)?;
         },
         ("shell", _) => {
             let mut user_cache = cache.user(username);

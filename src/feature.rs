@@ -91,7 +91,6 @@ impl FeatureSet {
 
         for feature_value in self.enabled_features.iter() {
             let feature_name = self::feature_name(feature_value);
-            println!("s/{}/{}", feature_value, feature_name);
             file_name = file_name.replace(feature_value, feature_name);
         }
 
