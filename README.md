@@ -91,3 +91,21 @@ will get created in `$HOME` and then a symlink to the dotfile will be created wi
 It is not possible with this tool to symlink an entire directory within a dotfiles repository to `$HOME`.
 If this were possible, applications would/could write new files into the repository, which isn't good.
 
+# Feature flags
+
+Dotfiles can mention required features in their filenames. These dotfiles will be conditionally symlinked
+depending on the current system.
+
+When a dotfile is linked, all feature flags are substituted with the feature name. For example,
+`linux` will become `os`, `x86` will become `arch`, and `unix` will become `family`.
+Because of this, it is possible to source OS or arch specific dotfiles the same way across all
+architectures.
+
+Examples
+
+| File                          | Symlink                | Note                                    |
+| ----------------------------- | ---------------------- | --------------------------------------- |
+| `.tmux.conf`                  | `~/.tmux.conf`         | No feature flags, will always be linked |
+| `.tmux.linux.conf`            | `~/.tmux.os.conf`      | Will only be linked on Linux            |
+| `.tmux.linux.x86.conf`        | `~/.tmux.os.arch.conf` | Will only be linked on x86 Linux        |
+
