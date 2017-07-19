@@ -127,11 +127,11 @@ impl<'a> UserCache<'a> {
     pub fn setup(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
         self.grab(source, verbose)?;
 
-        self.build_symlinks(&symlink::Config::default(), verbose).
+        self.link_ext(&symlink::Config::default(), verbose).
             chain_err(|| "could not build symlinks")
     }
 
-    /// Downloadu dotfiles but does not create symlinks.
+    /// Download dotfiles but does not create symlinks.
     pub fn grab(&mut self, source: &SourceSpec, _verbose: bool) -> Result<(), Error> {
         // Create the parent directory if it doesn't exist.
         if let Some(parent) = self.dotfiles_path().parent() {
@@ -169,9 +169,30 @@ impl<'a> UserCache<'a> {
         backend.update(verbose)
     }
 
-    /// Rebuilds symbolic links for the user.
+    /// Creates all symlinks.
     pub fn link(&mut self, verbose: bool) -> Result<(), Error> {
-        self.build_symlinks(&symlink::Config::default(), verbose)
+        self.link_ext(&symlink::Config::default(), verbose)
+    }
+
+    /// Creates all symlinks, with more options.
+    pub fn link_ext(&mut self,
+                    symlink_config: &symlink::Config,
+                    verbose: bool) -> Result<(), Error> {
+        let features = FeatureSet::current_system();
+
+        for dotfile in self.dotfiles()? {
+            if features.supports(&dotfile) {
+                symlink::build(&dotfile, &symlink_config)?;
+
+                let symlink_path = symlink::path(&dotfile, &symlink_config);
+                vlog!(verbose => "created {} -> {}", dotfile.full_path.display(), symlink_path.display());
+            } else {
+                ilog!("ignoring '{}' because is is not supported by this machine",
+                      dotfile.relative_path.display());
+            }
+        }
+
+        Ok(())
     }
 
     /// Deletes all symbolic links.
@@ -236,27 +257,6 @@ impl<'a> UserCache<'a> {
         let manifest = self.manifest()?;
         backend::open(&self.dotfiles_path(), manifest.source.clone()).map(|b| (manifest, b))
     }
-
-    /// Creates all symlinks.
-    pub fn build_symlinks(&mut self,
-                          symlink_config: &symlink::Config,
-                          verbose: bool) -> Result<(), Error> {
-        let features = FeatureSet::current_system();
-
-        for dotfile in self.dotfiles()? {
-            if features.supports(&dotfile) {
-                symlink::build(&dotfile, &symlink_config)?;
-
-                let symlink_path = symlink::path(&dotfile, &symlink_config);
-                vlog!(verbose => "created {} -> {}", dotfile.full_path.display(), symlink_path.display());
-            } else {
-                ilog!("ignoring '{}' because is is not supported by this machine",
-                      dotfile.relative_path.display());
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl UserManifest {
@@ -281,8 +281,9 @@ impl UserManifest {
 
 mod backup {
     use {Error, ResultExt};
+    use rand::random;
     use std::path::Path;
-    use std::{fs, env, time};
+    use std::{fs, env};
 
     /// Move a file to a temporary location and restore it
     /// in the event of an error.
@@ -337,8 +338,196 @@ mod backup {
 
     /// Generates a random token text.
     fn random_token() -> String {
-        let elapsed = time::SystemTime::now().elapsed().unwrap_or(time::Duration::from_millis(0));
-        (!(elapsed.subsec_nanos() as u32)).to_string()
+        let (a,b): (u32,u32) = (random(), random());
+        format!("{}{}", a, b)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use SourceSpec;
+    use symlink;
+
+    use rand::random;
+    use git2;
+
+    use std::path::PathBuf;
+    use std::env;
+
+    lazy_static! {
+        /// A path which contains a git repository with dotfiles.
+        static ref DOTFILES_REPO_PATH: PathBuf = {
+            let path = self::temp_directory();
+
+            let mut repo = git2::Repository::init(&path).expect("failed to create repository");
+            self::populate_dotfiles_repository(&mut repo, DOTFILES);
+            path
+        };
+
+        static ref DOTFILES_SOURCE: SourceSpec = {
+            let url = format!("file://{}", DOTFILES_REPO_PATH.display());
+            SourceSpec::Url(url)
+        };
+    }
+
+    /// Example dotfiles.
+    const DOTFILES: &'static [(&'static str, &'static str)] = &[
+        (".vimrc", "set ruler\nset sw=2\nset ts=2\n\n"),
+        (".bashrc", "export PATH=/foo/bar:$PATH"),
+    ];
+
+    /// Get a temporary directory path.
+    fn temp_directory() -> PathBuf {
+        let (a,b): (u32,u32) = (random(), random());
+        env::temp_dir().join(format!("cache-{}-{}", a, b))
+    }
+
+    /// Runs a function with a freshly-created cache.
+    fn with_cache<F>(f: F)
+        where F: FnOnce(&mut Cache) {
+        clean_fake_home();
+        let cache_path = temp_directory();
+
+        let mut cache = Cache::create(cache_path).expect("could not create cache");
+        f(&mut cache);
+
+        destroy_cache(cache);
+        clean_fake_home();
+    }
+
+    /// Runs a function with a freshly-created user cache.
+    fn with_user_cache<F>(f: F)
+        where F: FnOnce(&mut UserCache) {
+        with_cache(|cache| {
+            let mut user_cache = cache.user("jenny");
+            f(&mut user_cache);
+        })
+    }
+
+    /// Destroys a cache from disk.
+    fn destroy_cache(cache: Cache) {
+        fs::remove_dir_all(cache.path).expect("could not destroy cache");
+    }
+
+    /// Cleans the fake home directory.
+    fn clean_fake_home() {
+        let home = ::util::home_dir();
+        if home.exists() {
+            fs::remove_dir_all(&home).expect("could not clean fake home");
+        }
+        fs::create_dir_all(&home).ok();
+    }
+
+    /// Populates a repository with dotfiles.
+    fn populate_dotfiles_repository(repo: &git2::Repository,
+                                    dotfiles: &'static [(&'static str, &'static str)])  {
+        use std::fs::File;
+        let sig = repo.signature().unwrap();
+
+        let tree_id = {
+            let mut index = repo.index().unwrap();
+
+            for &(file_name, content) in dotfiles.iter() {
+                let repo_dir = repo.workdir().unwrap();
+                let file_path = repo_dir.join(file_name);
+                let repo_relative_path = file_path.strip_prefix(&repo_dir).unwrap();
+
+                let mut file = File::create(&file_path).unwrap();
+                file.write_all(content.as_bytes()).unwrap();
+                drop(file);
+
+                index.add_path(&repo_relative_path).unwrap();
+            }
+
+            index.write_tree().unwrap()
+        };
+
+        let tree = repo.find_tree(tree_id).unwrap();
+
+        // Ready to create the initial commit.
+        //
+        // Normally creating a commit would involve looking up the current HEAD
+        // commit and making that be the parent of the initial commit, but here this
+        // is the first commit so there will be no parent.
+        repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[]).unwrap();
+    }
+
+    /// Gets the symlinking configuration.
+    fn symlink_config() -> symlink::Config {
+        symlink::Config {
+            home_path: ::util::home_dir(),
+        }
+    }
+
+    /// Gets all dotfiles that have been symlinked.
+    fn symlinked_dotfiles(user_cache: &UserCache) -> Vec<Dotfile> {
+        let config = symlink_config();
+
+        user_cache.dotfiles().unwrap().into_iter().filter(|dotfile| {
+            symlink::exists(&dotfile, &config).unwrap()
+        }).collect()
+    }
+
+    #[test]
+    fn grab_works_as_expected() {
+        with_user_cache(|user_cache| {
+            assert!(user_cache.dotfiles().unwrap().is_empty(), "empty cache should not have dotfiles");
+            assert!(symlinked_dotfiles(&user_cache).is_empty(), "empty cache should have no symlinked dotfiles");
+
+            // Ensure that grabbing dotfiles gets all expected dotfiles.
+            user_cache.grab(&DOTFILES_SOURCE, false).unwrap();
+            assert_eq!(user_cache.dotfiles().unwrap().len(), DOTFILES.len());
+            assert_eq!(symlinked_dotfiles(&user_cache), &[], "grabbing should not create symlinks");
+
+            // Ensure file names are correct.
+            for dotfile in user_cache.dotfiles().unwrap() {
+                let does_match = DOTFILES.iter().any(|&(file_name,_)| dotfile.relative_path == Path::new(file_name));
+                assert!(does_match, "a file path in the cache does not match");
+            }
+        });
+    }
+
+    #[test]
+    fn link_unlink_leaves_nothing() {
+        with_user_cache(|user_cache| {
+            assert_eq!(symlinked_dotfiles(&user_cache), &[]);
+            // Ensure that grabbing dotfiles gets all expected dotfiles.
+            user_cache.grab(&DOTFILES_SOURCE, false).unwrap();
+            assert_eq!(user_cache.dotfiles().unwrap().len(), DOTFILES.len());
+            assert_eq!(symlinked_dotfiles(&user_cache), &[]);
+
+            user_cache.link(false).unwrap();
+            assert_eq!(symlinked_dotfiles(&user_cache).len(), DOTFILES.len(), "all symlinks should be created");
+            user_cache.unlink(false).unwrap();
+            assert!(symlinked_dotfiles(&user_cache).is_empty(), "all symlinks should be destroyed");
+        });
+    }
+
+    #[test]
+    fn link_without_grab_does_nothing() {
+        with_user_cache(|user_cache| {
+            user_cache.link(false).unwrap();
+            assert!(symlinked_dotfiles(&user_cache).is_empty(), "no symlinks should exist");
+        });
+    }
+
+    #[test]
+    fn setup_creates_symlinks() {
+        with_user_cache(|user_cache| {
+            assert!(symlinked_dotfiles(&user_cache).is_empty(), "empty cache should have no symlinked dotfiles");
+
+            // Ensure that grabbing dotfiles gets all expected dotfiles.
+            user_cache.setup(&DOTFILES_SOURCE, false).unwrap();
+            assert_eq!(user_cache.dotfiles().unwrap().len(), DOTFILES.len());
+            assert_eq!(symlinked_dotfiles(&user_cache).len(), DOTFILES.len(),  "setup should create symlinks");
+
+            // Ensure file names are correct.
+            for dotfile in user_cache.dotfiles().unwrap() {
+                let does_match = DOTFILES.iter().any(|&(file_name,_)| dotfile.relative_path == Path::new(file_name));
+                assert!(does_match, "a file path in the cache does not match");
+            }
+        });
     }
 }
 

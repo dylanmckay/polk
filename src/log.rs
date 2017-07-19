@@ -35,6 +35,9 @@ macro_rules! fatal {
 macro_rules! fatal_error {
     ($error:expr) => {
         {
+            use std::io::prelude::*;
+            use std::io;
+
             let error: $crate::Error = $error.into();
             let errors: Vec<_> = error.iter().map(ToString::to_string).collect();
 
@@ -47,7 +50,7 @@ macro_rules! fatal_error {
             /// Print useful stacktrace in debug mode.
             #[cfg(debug_assertions)]
             {
-                eprintln!("error: {}", errors.join(" - "));
+                writeln!(io::stderr(), "error: {}", errors.join(" - ")).unwrap();
                 panic!("{}", error);
             }
         }
@@ -71,15 +74,20 @@ macro_rules! fatal_error {
 macro_rules! log {
     ($label:expr, $color:ident,
      $logging_enabled:expr => $fmt:expr $(, $arg:expr )*) => {
-        if $logging_enabled {
-            use term;
+        {
+            use std::io;
+            use std::io::prelude::*;
 
-            let mut t = term::stderr().unwrap();
+            if $logging_enabled {
+                use term;
 
-            t.fg(term::color::$color).ok();
-            eprint!("{}: ", $label);
-            t.reset().ok();
-            eprintln!($fmt $( , $arg )*);
+                let mut t = term::stderr().unwrap();
+
+                t.fg(term::color::$color).ok();
+                write!(io::stderr(), "{}: ", $label).ok();
+                t.reset().ok();
+                writeln!(io::stderr(), $fmt $( , $arg )*).ok();
+            }
         }
     }
 }

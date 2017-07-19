@@ -53,7 +53,7 @@ impl<'a> Shell<'a> {
         let verbose = false;
         let home_path = self.user_cache.home_path();
 
-        self.user_cache.build_symlinks(&symlink::Config {
+        self.user_cache.link_ext(&symlink::Config {
             home_path: home_path,
         }, verbose)
     }

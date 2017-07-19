@@ -11,6 +11,7 @@ extern crate serde;
 extern crate serde_derive;
 #[macro_use]
 extern crate error_chain;
+extern crate rand;
 
 pub use self::cache::{Cache, UserCache};
 pub use self::source::{Source, SourceSpec};
@@ -25,9 +26,11 @@ pub mod symlink;
 pub mod feature;
 pub mod backend;
 pub mod tools;
+pub mod util;
 pub mod errors;
 
 /// A single dotfile.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Dotfile
 {
     /// The full on-disk path of the dotfile.
@@ -42,8 +45,7 @@ use std::path::PathBuf;
 use std::env;
 
 fn open_cache() -> Result<Cache, Error> {
-    let path = env::home_dir().expect("user does not have home directory").
-        join(".polk");
+    let path = util::home_dir().join(".polk");
 
     Cache::at(path.to_owned())
 }
