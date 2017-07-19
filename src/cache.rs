@@ -180,8 +180,9 @@ impl<'a> UserCache<'a> {
                     verbose: bool) -> Result<(), Error> {
         let features = FeatureSet::current_system();
 
-        for dotfile in self.dotfiles()? {
+        for mut dotfile in self.dotfiles()? {
             if features.supports(&dotfile) {
+                features.substitute_enabled_feature_names(&mut dotfile);
                 symlink::build(&dotfile, &symlink_config)?;
 
                 let symlink_path = symlink::path(&dotfile, &symlink_config);

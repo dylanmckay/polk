@@ -14,7 +14,6 @@ pub struct Config {
 /// Creates a symlink to a dotfile.
 pub fn build(dotfile: &Dotfile, config: &Config) -> Result<(), Error> {
     let dest_path = self::path(dotfile, config);
-    println!("building dotfile: {}", dest_path.display());
 
     if dest_path.exists() {
         if dest_path.is_dir() {
@@ -48,6 +47,7 @@ pub fn build(dotfile: &Dotfile, config: &Config) -> Result<(), Error> {
         }
     }
 
+    println!("{} -> {}", dotfile.full_path.display(), dest_path.display());
     unix::fs::symlink(&dotfile.full_path, &dest_path)?;
 
     Ok(())
