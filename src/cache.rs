@@ -299,7 +299,7 @@ mod backup {
     use {Error, ResultExt};
     use rand::random;
     use std::path::Path;
-    use std::{fs, env};
+    use std::fs;
 
     /// Move a file to a temporary location and restore it
     /// in the event of an error.
@@ -313,7 +313,7 @@ mod backup {
         }
 
         let file_name = path.file_name().expect("cannot have transactions on paths with no file name").to_str().unwrap();
-        let temp_path = env::temp_dir().join(format!("{}-{}", file_name, random_token()));
+        let temp_path = path.clone().parent().unwrap_or(path).join(format!(".{}.{}.backup", file_name, random_token()));
 
         // We don't need special error handling here because if we fail to backup,
         // we won't even end up executing the function.
