@@ -13,6 +13,11 @@ use std::fs;
 pub const DOTFILE_FILE_BLACKLIST: &'static [&'static str] = &[
     ".gitignore",
     ".git", // Git worktrees have `.git` files.
+    ".gitmodules",
+    "README", "README.txt", "README.md", "README.rst", "README.doc",
+    "LICENSE", "LICENSE.txt", "LICENSE.md", "LICENSE.rst", "LICENSE.doc",
+    "HACKING", "HACKING.txt", "HACKING.md", "HACKING.rst", "HACKING.doc",
+    "CONTRIBUTING", "CONTRIBUTING.txt", "CONTRIBUTING.md", "CONTRIBUTING.rst", "CONTRIBUTING.doc",
 ];
 
 /// Folders which we should not recurse into whilst searching for dotfiles.
