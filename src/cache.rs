@@ -125,17 +125,18 @@ impl<'a> UserCache<'a> {
 
     /// Fetches dotfiles *and* creates symlinks.
     pub fn setup(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
-        self.grab(source, verbose)?;
+        self.grab(source, verbose).chain_err(|| "failed to grab dotfiles")?;
 
         self.link_ext(&symlink::Config::default(), verbose).
             chain_err(|| "could not build symlinks")
     }
 
     /// Download dotfiles but does not create symlinks.
-    pub fn grab(&mut self, source: &SourceSpec, _verbose: bool) -> Result<(), Error> {
+    pub fn grab(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
         // Create the parent directory if it doesn't exist.
         if let Some(parent) = self.dotfiles_path().parent() {
             if !parent.exists() {
+                vlog!(verbose => "{} does not exist, creating it", parent.display());
                 fs::create_dir_all(&parent)?;
             }
         }
@@ -332,22 +333,25 @@ mod backup {
 
     /// Backup a path.
     fn backup_path(path: &Path, temp_path: &Path) -> Result<(), Error> {
-        fs::rename(path, &temp_path)?;
+        ilog!("backing up {} to {}", path.display(), temp_path.display());
+        fs::rename(path, &temp_path).chain_err(|| "failed to move file to temporary path")?;
         Ok(())
     }
 
     /// Restore a path.
     fn restore_path(path: &Path, temp_path: &Path) -> Result<(), Error> {
+        ilog!("restoring {} to {}", temp_path.display(), path.display());
+
         // If somebody has put a file in our place, delete it.
         if path.exists() {
             if path.is_dir() {
-                fs::remove_dir_all(path)?;
+                fs::remove_dir_all(path).chain_err(|| "could not remove dirty directory")?;
             } else {
-                fs::remove_file(path)?;
+                fs::remove_file(path).chain_err(|| "could not remove dirty file")?;
             }
         }
 
-        fs::rename(&temp_path, path)?;
+        fs::rename(&temp_path, path).chain_err(|| "could not move backup file to original path")?;
         Ok(())
     }
 

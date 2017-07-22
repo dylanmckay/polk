@@ -130,6 +130,7 @@ fn polk() -> Result<(), Error> {
         },
         ("grab", Some(cmd_matches)) |
         ("setup", Some(cmd_matches)) => {
+            ilog!("setting up");
             let mut user_cache = cache.user(username);
 
             let subcommand = matches.subcommand().0;
