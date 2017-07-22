@@ -19,7 +19,7 @@ impl Git {
 
     pub fn setup(dest: &Path, source: &str) -> Result<Git, Error> {
         ilog!("cloning from Git repository at '{}' to '{}'", dest.display(), source);
-        let repo = Repository::clone(source, dest).chain_err(|| format!("could not clone '{}'", source))?;
+        let repo = Repository::clone_recurse(source, dest).chain_err(|| format!("could not clone '{}'", source))?;
         ilog!("successfully cloned Git repository");
 
         Ok(Git { repo: repo })
@@ -67,6 +67,7 @@ impl Backend for Git {
 
         remote.update_tips(None, true,
                            AutotagOption::Unspecified, None)?;
+
         let remote_ref_name = format!("refs/remotes/{}/{}", remote_name, branch_name);
         let remote_ref = self.repo.find_reference(&remote_ref_name)?;
         let current_head = original_head.set_target(remote_ref.target().unwrap(), "updating branch for new dotfiles")?;

@@ -15,7 +15,10 @@ license = "MIT"
 
 [dependencies]
 clap = "2.25"
-git2 = "0.6"
+# git2 = "0.6"
+# Needed to get 'update submodules' support
+# https://github.com/alexcrichton/git2-rs/pull/226
+git2 = { git = 'https://github.com/alexcrichton/git2-rs.git' }
 regex = "0.2"
 lazy_static = "0.2"
 walkdir = "1.0"
