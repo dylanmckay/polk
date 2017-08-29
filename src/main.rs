@@ -12,6 +12,7 @@ extern crate serde_derive;
 #[macro_use]
 extern crate error_chain;
 extern crate rand;
+extern crate symlink as sym;
 
 pub use self::cache::{Cache, UserCache};
 pub use self::source::{Source, SourceSpec};

@@ -1,6 +1,6 @@
 use {SourceSpec, Dotfile, FeatureSet, Error, ResultExt};
 use backend::{self, Backend};
-use symlink;
+use {symlink, util};
 
 use walkdir::WalkDir;
 use toml;
@@ -8,6 +8,7 @@ use toml;
 use std::io::prelude::*;
 use std::path::{self, Path, PathBuf};
 use std::fs;
+use sym;
 
 /// Files which should not be considered dotfiles.
 pub const DOTFILE_FILE_BLACKLIST: &'static [&'static str] = &[
@@ -128,6 +129,10 @@ impl<'a> UserCache<'a> {
         self.base_path().join("home")
     }
 
+    pub fn shortcut_symlink_path(&self) -> PathBuf {
+        util::home_dir().join(".dot")
+    }
+
     /// Fetches dotfiles *and* creates symlinks.
     pub fn setup(&mut self, source: &SourceSpec, verbose: bool) -> Result<(), Error> {
         self.grab(source, verbose).chain_err(|| "failed to grab dotfiles")?;
@@ -199,6 +204,14 @@ impl<'a> UserCache<'a> {
             }
         }
 
+        if self.shortcut_symlink_path().exists() {
+            if self.shortcut_symlink_path().symlink_metadata().is_ok() {
+                // Remove the existing symlink.
+                sym::remove_symlink_dir(&self.shortcut_symlink_path()).chain_err(|| "could not create remove existing to dotfiles repository")?;
+            }
+        }
+        sym::symlink_dir(self.dotfiles_path(), self.shortcut_symlink_path()).chain_err(|| "could not create symlink to dotfiles repository")?;
+
         Ok(())
     }
 
@@ -213,6 +226,10 @@ impl<'a> UserCache<'a> {
 
                 symlink::destroy(&dotfile, &symlink_config)?;
             }
+        }
+
+        if self.shortcut_symlink_path().symlink_metadata().is_ok() {
+            sym::remove_symlink_dir(&self.shortcut_symlink_path()).chain_err(|| "could not create remove existing to dotfiles repository")?;
         }
 
         Ok(())
