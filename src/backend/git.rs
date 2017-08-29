@@ -67,6 +67,10 @@ impl Backend for Git {
 
         remote.update_tips(None, true,
                            AutotagOption::Unspecified, None)?;
+        // FIXME: should do this recursively
+        for mut submodule in self.repo.submodules()? {
+            submodule.update(true, None)?;
+        }
 
         let remote_ref_name = format!("refs/remotes/{}/{}", remote_name, branch_name);
         let remote_ref = self.repo.find_reference(&remote_ref_name)?;
