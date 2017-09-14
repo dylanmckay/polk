@@ -1,6 +1,6 @@
 [root]
 name = "polk"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "clap 2.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
