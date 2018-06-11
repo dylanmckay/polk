@@ -41,13 +41,13 @@ macro_rules! fatal_error {
             let error: $crate::Error = $error.into();
             let errors: Vec<_> = error.iter().map(ToString::to_string).collect();
 
-            /// Print pretty error messages in release builds.
+            // Print pretty error messages in release builds.
             #[cfg(not(debug_assertions))]
             {
                 fatal!("{}", error)
             }
 
-            /// Print useful stacktrace in debug mode.
+            // Print useful stacktrace in debug mode.
             #[cfg(debug_assertions)]
             {
                 writeln!(io::stderr(), "error: {}", errors.join(" - ")).unwrap();
