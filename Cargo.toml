@@ -1,6 +1,6 @@
 [package]
 name = "polk"
-version = "1.1.3"
+version = "1.1.4"
 authors = ["Dylan McKay <me@dylanmckay.io>"]
 
 description = "Dotfile manager and symlinker"
