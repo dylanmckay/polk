@@ -40,7 +40,7 @@ pub struct Dotfile
     pub relative_path: PathBuf,
 }
 
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, Command};
 
 use std::path::PathBuf;
 use std::env;
@@ -62,16 +62,16 @@ fn system_username() -> String {
 mod arg {
     use clap::Arg;
 
-    pub fn dotfile_source<'a,'b>() -> Arg<'a,'b> {
-        Arg::with_name("SOURCE")
+    pub fn dotfile_source() -> Arg {
+        Arg::new("SOURCE")
             .help("Sets the source of the dotfiles")
             .required(true)
             .index(1)
     }
 
-    pub fn username<'a,'b>() -> Arg<'a,'b> {
-        Arg::with_name("user")
-            .short("u")
+    pub fn username() -> Arg {
+        Arg::new("user")
+            .short('u')
             .long("user")
             .value_name("USERNAME")
             .help("The username associated with the dotfiles\nDefaults to your computer username")
@@ -81,101 +81,101 @@ mod arg {
 fn polk() -> Result<(), Error> {
     let cache = open_cache()?;
 
-    let matches = App::new("Polk")
+    let matches = Command::new("Polk")
                           .version(env!("CARGO_PKG_VERSION"))
                           .author(env!("CARGO_PKG_AUTHORS"))
                           .about(env!("CARGO_PKG_DESCRIPTION"))
-                          .arg(Arg::with_name("verbose")
-                               .short("v")
+                          .arg(Arg::new("verbose")
+                               .short('v')
                                .long("verbose")
                                .help("Enables verbose output"))
-                          .subcommand(SubCommand::with_name("grab")
+                          .subcommand(Command::new("grab")
                                       .arg(arg::username())
                                       .arg(arg::dotfile_source())
                                       .about("Downloads dotfiles but does not create symlinks to them"))
-                          .subcommand(SubCommand::with_name("setup")
+                          .subcommand(Command::new("setup")
                                       .arg(arg::username())
                                       .arg(arg::dotfile_source())
                                       .about("Fetches dotfiles and creates symlinks to them"))
-                          .subcommand(SubCommand::with_name("update")
+                          .subcommand(Command::new("update")
                                       .arg(arg::username())
                                       .about("Updates dotfiles via the internet"))
-                          .subcommand(SubCommand::with_name("link")
+                          .subcommand(Command::new("link")
                                       .arg(arg::username())
                                       .about("Creates symbolic links to dotfiles"))
-                          .subcommand(SubCommand::with_name("unlink")
+                          .subcommand(Command::new("unlink")
                                       .about("Deletes all symbolic links"))
-                          .subcommand(SubCommand::with_name("relink")
+                          .subcommand(Command::new("relink")
                                       .about("Recreates all symbolic links"))
-                          .subcommand(SubCommand::with_name("shell")
+                          .subcommand(Command::new("shell")
                                       .arg(arg::username())
                                       .about("Open up a shell with a temporary $HOME and the given users dotfiles"))
-                          .subcommand(SubCommand::with_name("forget")
+                          .subcommand(Command::new("forget")
                                       .about("Deletes all symbolic links and cached dotfiles files"))
-                          .subcommand(SubCommand::with_name("info")
+                          .subcommand(Command::new("info")
                                       .about("List information"))
                           .get_matches();
 
-    let verbose = matches.is_present("verbose");
+    let verbose = matches.contains_id("verbose");
     let mut term = term::stdout().expect("could not open stdout for term library");
 
-    let username = if let Some(cmd_matches) = matches.subcommand().1 {
-        cmd_matches.value_of("user").map(ToOwned::to_owned).unwrap_or_else(|| system_username())
+    let username = if let Some(cmd_matches) = matches.subcommand().map(|s| s.1) {
+        cmd_matches.get_one::<String>("user").map(ToOwned::to_owned).unwrap_or_else(|| system_username())
     } else {
         system_username()
     };
 
     match matches.subcommand() {
-        ("", None) => {
+        None => {
             fatal!("please enter a subcommand");
         },
-        ("grab", Some(cmd_matches)) |
-        ("setup", Some(cmd_matches)) => {
+        Some(("grab", cmd_matches)) |
+        Some(("setup", cmd_matches)) => {
             ilog!("setting up");
             let mut user_cache = cache.user(username);
 
-            let subcommand = matches.subcommand().0;
+            let subcommand = matches.subcommand().map(|s| s.0);
 
             // Gets a value for config if supplied by user, or defaults to "default.conf"
-            let source_str = cmd_matches.value_of("SOURCE").unwrap();
+            let source_str = cmd_matches.get_one::<String>("SOURCE").unwrap();
             let source_spec: SourceSpec = source_str.parse()?;
 
             vlog!(verbose => "Getting dotfiles from {}", source_spec.description());
 
             match subcommand {
-                "grab" => user_cache.grab(&source_spec, verbose)?,
-                "setup" => user_cache.setup(&source_spec, verbose)?,
+                Some("grab") => user_cache.grab(&source_spec, verbose)?,
+                Some("setup") => user_cache.setup(&source_spec, verbose)?,
                 _ => unreachable!(),
             }
         },
-        ("update", _) => {
+        Some(("update", _)) => {
             let mut user_cache = cache.user(username);
             user_cache.update(verbose)?;
         },
-        ("link", _) => {
+        Some(("link", _)) => {
             let mut user_cache = cache.user(username);
             user_cache.link(verbose)?;
         },
-        ("unlink", _) => {
+        Some(("unlink", _)) => {
             let mut user_cache = cache.user(username);
             user_cache.unlink(verbose)?;
         },
-        ("relink", _) => {
+        Some(("relink", _)) => {
             let mut user_cache = cache.user(username);
             user_cache.unlink(verbose)?;
             user_cache.link(verbose)?;
         },
-        ("shell", _) => {
+        Some(("shell", _)) => {
             let mut user_cache = cache.user(username);
             let config = tools::shell::Config::default();
 
             let shell = tools::shell::Shell::create(&mut user_cache, config)?;
             shell.exec()?;
         },
-        ("forget", _) => {
+        Some(("forget", _)) => {
             cache.forget(verbose)?;
         },
-        ("info", _) => {
+        Some(("info", _)) => {
             let user_cache = cache.user(username);
             let features = feature::FeatureSet::current_system();
 

@@ -62,7 +62,7 @@ impl Backend for Git {
         let mut remote = self.repo.find_remote(&remote_name)?;
 
         remote.connect(Direction::Fetch)?;
-        remote.download(&[], None)?;
+        remote.download::<&str>(&[], None)?;
         remote.disconnect();
 
         remote.update_tips(None, true,
