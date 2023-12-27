@@ -291,7 +291,7 @@ impl<'a> UserCache<'a> {
     }
 
     /// Gets the manifest and backend.
-    fn open_manifest_backend(&self) -> Result<(UserManifest, Box<Backend>), Error> {
+    fn open_manifest_backend(&self) -> Result<(UserManifest, Box<dyn Backend>), Error> {
         let manifest = self.manifest()?;
         backend::open(&self.dotfiles_path(), manifest.source.clone()).map(|b| (manifest, b))
     }
@@ -335,7 +335,7 @@ mod backup {
         }
 
         let file_name = path.file_name().expect("cannot have transactions on paths with no file name").to_str().unwrap();
-        let temp_path = path.clone().parent().unwrap_or(path).join(format!(".{}.{}.backup", file_name, random_token()));
+        let temp_path = path.parent().unwrap_or(path).join(format!(".{}.{}.backup", file_name, random_token()));
 
         // We don't need special error handling here because if we fail to backup,
         // we won't even end up executing the function.

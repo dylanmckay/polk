@@ -10,7 +10,7 @@ pub trait Backend {
 }
 
 /// Initializes a new backend.
-pub fn setup<S>(dest: &Path, source: S) -> Result<Box<Backend>, Error>
+pub fn setup<S>(dest: &Path, source: S) -> Result<Box<dyn Backend>, Error>
     where S: Into<Source> {
     match source.into() {
         Source::Git { ref url } => git::Git::setup(dest, url).map(|b| Box::new(b) as _),
@@ -18,7 +18,7 @@ pub fn setup<S>(dest: &Path, source: S) -> Result<Box<Backend>, Error>
 }
 
 /// Opens an existing backend.
-pub fn open<S>(path: &Path, source: S) -> Result<Box<Backend>, Error>
+pub fn open<S>(path: &Path, source: S) -> Result<Box<dyn Backend>, Error>
     where S: Into<Source> {
     match source.into() {
         Source::Git { .. } => git::Git::open(path).map(|b| Box::new(b) as _),

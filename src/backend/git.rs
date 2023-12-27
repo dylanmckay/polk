@@ -63,7 +63,7 @@ impl Backend for Git {
 
         remote.connect(Direction::Fetch)?;
         remote.download::<&str>(&[], None)?;
-        remote.disconnect();
+        remote.disconnect()?;
 
         remote.update_tips(None, true,
                            AutotagOption::Unspecified, None)?;
